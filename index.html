@@ -4017,9 +4017,10 @@ async function cloudFlush(){
   try{
     try{ledCapture(lastFp)}catch(x){console.warn('ledCapture',x)}
     const fp=fingerprint(state), prev=lastFp||{users:{},years:{},exec:{},strat:{},events:{},off:{}};
-    let batch=FB.writeBatch(cloud.db), n=0;
-    const put=(ref,data)=>{batch.set(ref,data,{merge:false});n++;
-      if(n%400===0){batch.commit();batch=FB.writeBatch(cloud.db)}};
+    /* تُجمع العمليات أولاً؛ وإن رُفضت الدفعة تُرسل واحدة واحدة فيُحفظ السليم ويُعرف المرفوض بالضبط */
+    const OPS=[]; let n=0;
+    const batch={delete:ref=>OPS.push({t:'d',ref})};
+    const put=(ref,data)=>{OPS.push({t:'s',ref,data});n++};
     Object.entries(fp.users).forEach(([u,s])=>{ if(prev.users[u]!==s){
       const{pw,salt,...safe}=state.users[u];
       put(dref(P.user(u)),stripUndef(internalAuth()?state.users[u]:safe))}});
@@ -4052,8 +4053,26 @@ async function cloudFlush(){
       const[y,id]=[k.slice(0,k.indexOf('/')),k.slice(k.indexOf('/')+1)];
       batch.delete(dref([...P.sub(y,kind),id]));n++;
     }));
-    if(n)await batch.commit();
+    n=OPS.length; cloud.badDocs=[];
+    if(n){
+      try{
+        for(let i=0;i<OPS.length;i+=400){const b=FB.writeBatch(cloud.db);
+          OPS.slice(i,i+400).forEach(o=>o.t==='d'?b.delete(o.ref):b.set(o.ref,o.data,{merge:false})); await b.commit()}
+      }catch(be){
+        console.warn('batch rejected, retrying one by one',be);
+        for(const o of OPS){
+          try{ if(o.t==='d')await FB.deleteDoc(o.ref); else await FB.setDoc(o.ref,o.data,{merge:false}) }
+          catch(e1){cloud.badDocs.push({path:(o.ref&&o.ref.path)||'',code:(e1&&(e1.code||e1.message))||'',size:o.data?JSON.stringify(o.data).length:0})}
+        }
+      }
+    }
     lastFp=fp;
+    if(cloud.badDocs.length){
+      const B=cloud.badDocs, msg=`تعذّر حفظ ${B.length} سجل: ${B.slice(0,3).map(x=>x.path.split('/').slice(-2).join('/')+' ('+x.code+')').join('، ')}`;
+      console.error('cloud rejected docs',B);
+      cloudMark(msg,true); const a=$('#saveState'); if(a)a.textContent=msg;
+      return false;
+    }
     cloudMark(n?`حُفظ في السحابة — ${new Date().toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}`:null);
     if(n){const a=$('#saveState'); if(a)a.textContent=`حُفظت التعديلات — ${new Date().toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}`}
     return true;
@@ -12287,7 +12306,8 @@ addEventListener('beforeprint',()=>{if(!$('#printArea').innerHTML)buildPrint()})
         const M=window.__cloudMsg||{}, info=[
           ['الحالة',n.classList.contains('on')?'متصل':'غير متصل'],['السبب',M.msg||n.title||'—'],['الوقت',M.at||'—'],
           ['العنوان',location.origin+location.pathname],['الإنترنت',navigator.onLine?'متصل':'غير متصل'],
-          ['السحابة',typeof cloud!=='undefined'?(cloud.ready?'جاهزة':'غير جاهزة')+(cloud.subErr?' — '+cloud.subErr.what+': '+cloud.subErr.code:''):'—']];
+          ['السحابة',typeof cloud!=='undefined'?(cloud.ready?'جاهزة':'غير جاهزة')+(cloud.subErr?' — '+cloud.subErr.what+': '+cloud.subErr.code:''):'—'],
+          ...((typeof cloud!=='undefined'&&cloud.badDocs||[]).map(x=>['سجل مرفوض',x.path+' — '+x.code+' — '+x.size+' حرف']))];
         offDrawer('حالة الاتصال بالسحابة','',`<table class="gridT"><tbody>${info.map(([k,v])=>`<tr><th style="width:120px">${esc(k)}</th><td style="direction:ltr;text-align:right">${esc(String(v))}</td></tr>`).join('')}</tbody></table>
           <p class="hint">أرسل صورة هذه النافذة للدعم الفني إن استمر «غير متصل».</p>`,
           `<button class="btn btn-p" id="netRetry">إعادة الاتصال</button><button class="btn" id="dCancel">إغلاق</button>`);
