@@ -3985,7 +3985,14 @@ function cloudInit(){
 }
 
 /* ── تفكيك الحالة إلى مستندات وتجميعها منها ── */
-const stripUndef=o=>JSON.parse(JSON.stringify(o??null));
+/* تنظيف قبل الحفظ في Firestore: يحذف undefined والمفاتيح الفارغة أو المحجوزة (__x__)،
+   ويحوّل المصفوفة داخل مصفوفة إلى نص (Firestore لا يقبل المصفوفات المتداخلة) */
+const fsClean=(v,inArr)=>{
+  if(Array.isArray(v))return inArr?JSON.stringify(v):v.map(x=>fsClean(x,true));
+  if(v&&typeof v==='object'){const o={}; for(const [k,x] of Object.entries(v)){
+      if(!k||/^__.*__$/.test(k)||x===undefined)continue; o[k]=fsClean(x,false)} return o}
+  return v};
+const stripUndef=o=>fsClean(JSON.parse(JSON.stringify(o??null)),false);
 function yearDocOf(Y){
   return stripUndef({locks:Y.locks||{},evLocks:Y.evLocks||{},closed:!!Y.closed,
     execMeta:Y.exec.meta,stratMeta:Y.strat.meta,eventsLog:(Y.eventsLog||[]).slice(0,60)});
@@ -4021,18 +4028,21 @@ async function cloudFlush(){
     const OPS=[]; let n=0;
     const batch={delete:ref=>OPS.push({t:'d',ref})};
     const put=(ref,data)=>{OPS.push({t:'s',ref,data});n++};
+    /* مرجع آمن: معرّف فارغ أو فيه «/» لا يوقف الحفظ كله، بل يُسجَّل سجلاً مرفوضاً */
+    const BAD0=[]; const sref=(a,label)=>{try{if(a.some(x=>x===''||x==null||String(x).includes('/')))throw Object.assign(new Error('bad-id'),{code:'invalid-id'}); return dref(a)}
+      catch(e){BAD0.push({path:label||a.join('/'),code:e.code||e.message,size:0}); return null}};
     Object.entries(fp.users).forEach(([u,s])=>{ if(prev.users[u]!==s){
       const{pw,salt,...safe}=state.users[u];
-      put(dref(P.user(u)),stripUndef(internalAuth()?state.users[u]:safe))}});
-    Object.keys(prev.users).forEach(u=>{ if(!fp.users[u]){batch.delete(dref(P.user(u)));n++} });
+      const r=sref(P.user(u),'users/'+u); if(r)put(r,stripUndef(internalAuth()?state.users[u]:safe))}});
+    Object.keys(prev.users).forEach(u=>{ if(!fp.users[u]){const r=sref(P.user(u),'users/'+u); if(r){batch.delete(r);n++}} });
     Object.entries(fp.years).forEach(([y,s])=>{ if(prev.years[y]!==s)
-      put(dref(P.year(y)),yearDocOf(state.years[y])) });
+      {const r=sref(P.year(y),'years/'+y); if(r)put(r,stripUndef(yearDocOf(state.years[y])))} });
     const each=(kind,coll)=>Object.entries(fp[kind]).forEach(([k,s])=>{
       if(prev[kind][k]===s)return;
       const[y,id]=[k.slice(0,k.indexOf('/')),k.slice(k.indexOf('/')+1)];
       const Y=state.years[y]; if(!Y)return;
       const src=kind==='events'?Y.events:Y[kind].projects;
-      const o=src.find(x=>x.id===id); if(o)put(dref([...P.sub(y,coll),id]),stripUndef(o));
+      const o=src.find(x=>x.id===id); if(o){const r=sref([...P.sub(y,coll),id],coll+'/'+y+'/'+id); if(r)put(r,stripUndef(o))}
     });
     each('exec','exec'); each('strat','strat'); each('events','events');
     /* مجموعات المكتب */
@@ -4040,20 +4050,20 @@ async function cloudFlush(){
       if(prev.off&&prev.off[k]===sig)return;
       const c=k.slice(0,k.indexOf('/')), id=k.slice(k.indexOf('/')+1);
       const o=((state.office||{})[c]||[]).find(x=>x.id===id);
-      if(o)put(dref([...P.off(c),id]),stripUndef(o));
+      if(o){const r=sref([...P.off(c),id],c+'/'+id); if(r)put(r,stripUndef(o))}
     });
     Object.keys((prev.off)||{}).forEach(k=>{ if(!fp.off[k]){
       const c=k.slice(0,k.indexOf('/')), id=k.slice(k.indexOf('/')+1);
-      batch.delete(dref([...P.off(c),id]));n++} });
+      const r=sref([...P.off(c),id],c+'/'+id); if(r){batch.delete(r);n++}} });
     if(internalAuth()&&fp.org!==prev.org)
       put(dref(P.org()),{name:'إدارة الدعوة والإرشاد الديني',recoveryKey:state.recoveryKey||null});
     /* الحذف: ما اختفى من الحالة يُحذف من السحابة */
     ['exec','strat','events'].forEach(kind=>Object.keys(prev[kind]).forEach(k=>{
       if(fp[kind][k])return;
       const[y,id]=[k.slice(0,k.indexOf('/')),k.slice(k.indexOf('/')+1)];
-      batch.delete(dref([...P.sub(y,kind),id]));n++;
+      const r=sref([...P.sub(y,kind),id],kind+'/'+y+'/'+id); if(r){batch.delete(r);n++}
     }));
-    n=OPS.length; cloud.badDocs=[];
+    n=OPS.length; cloud.badDocs=[...BAD0];
     if(n){
       try{
         for(let i=0;i<OPS.length;i+=400){const b=FB.writeBatch(cloud.db);
