@@ -1576,7 +1576,7 @@ M2620 1116 c0 -3 9 -10 20 -16 11 -6 20 -8 20 -6 0 3 -9 10 -20 16 -11 6 -20
   </div>
   <div class="who">
     <div><div class="nm" id="whoName"></div><div class="rl" id="whoRole"></div></div>
-    <span class="netDot whoNet" id="netDot" hidden><i></i><span class="nl"></span></span>
+    <span class="netDot whoNet" id="netDot" hidden style="cursor:pointer"><i></i><span class="nl"></span></span>
     <button id="btnAdmin" title="لوحة المدير" aria-label="لوحة المدير" hidden><svg class="ic"><use href="#i-cog"/></svg></button>
     <button id="btnOut" title="تسجيل الخروج" aria-label="تسجيل الخروج"><svg class="ic"><use href="#i-out"/></svg></button>
   </div>
@@ -4059,7 +4059,7 @@ async function cloudFlush(){
     return true;
   }catch(e){
     console.error('cloudFlush',e);
-    cloudMark('تعذّر الحفظ في السحابة — سيُعاد المحاولة',true);
+    cloudMark('تعذّر الحفظ في السحابة — سيُعاد المحاولة ('+(e&&(e.code||e.message)||'')+')',true);
     setTimeout(()=>{if(!cloudBusy)cloudFlush()},5000);
     return false;
   }finally{
@@ -4069,7 +4069,7 @@ async function cloudFlush(){
 }
 /* حالة الاتصال: نقطة خضراء متصل، حمراء غير متصل — والتفصيل في التلميح */
 function cloudMark(msg,bad){
-  const ok=!bad;
+  const ok=!bad; window.__cloudMsg={msg:msg||'',bad:!!bad,at:new Date().toLocaleTimeString('en-GB')};
   const t=msg||(ok?`متصل بالسحابة — ${new Date().toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}`
                   :'غير متصل بالسحابة');
   const n=$('#netDot');
@@ -4102,7 +4102,7 @@ function cloudSubscribe(){
   /* خطأ في أي مستمع يوقف الانتظار فوراً برسالة مفهومة بدل مهلة صامتة */
   const subErr=(what)=>(e)=>{
     cloud.subErr={what,code:e&&(e.code||e.message)};
-    cloudMark('تعذّر قراءة '+what,true);
+    cloudMark('تعذّر قراءة '+what+' ('+(e&&(e.code||e.message)||'')+')',true);
   };
   un.push(FB.onSnapshot(cref(P.users()),s=>{
     S.users={}; s.forEach(d=>S.users[d.id]={u:d.id,...d.data()});
@@ -12282,6 +12282,18 @@ addEventListener('beforeprint',()=>{if(!$('#printArea').innerHTML)buildPrint()})
       if(FB_BAKED&&FB_BAKED.projectId)$('#cloudBtn').hidden=true;
       addEventListener('online',()=>cloudMark(null,false));
       addEventListener('offline',()=>cloudMark('الجهاز غير متصل بالإنترنت',true));
+      /* النقر على حالة الاتصال يعرض السبب بالتفصيل */
+      document.addEventListener('click',e=>{const n=e.target.closest('#netDot'); if(!n)return;
+        const M=window.__cloudMsg||{}, info=[
+          ['الحالة',n.classList.contains('on')?'متصل':'غير متصل'],['السبب',M.msg||n.title||'—'],['الوقت',M.at||'—'],
+          ['العنوان',location.origin+location.pathname],['الإنترنت',navigator.onLine?'متصل':'غير متصل'],
+          ['السحابة',typeof cloud!=='undefined'?(cloud.ready?'جاهزة':'غير جاهزة')+(cloud.subErr?' — '+cloud.subErr.what+': '+cloud.subErr.code:''):'—']];
+        offDrawer('حالة الاتصال بالسحابة','',`<table class="gridT"><tbody>${info.map(([k,v])=>`<tr><th style="width:120px">${esc(k)}</th><td style="direction:ltr;text-align:right">${esc(String(v))}</td></tr>`).join('')}</tbody></table>
+          <p class="hint">أرسل صورة هذه النافذة للدعم الفني إن استمر «غير متصل».</p>`,
+          `<button class="btn btn-p" id="netRetry">إعادة الاتصال</button><button class="btn" id="dCancel">إغلاق</button>`);
+        $('#dCancel').onclick=closeDrawer; $('#ov').classList.add('on');
+        $('#netRetry').onclick=()=>{closeDrawer(); try{cloudFlush()}catch(_){} setTimeout(()=>location.reload(),300)};
+      });
       const ok=await cloudBootInternal();
       if(!ok)return;                      /* الرسالة معروضة، لا تكمل */
       cloudBooted=true;
