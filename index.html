@@ -908,6 +908,26 @@ tr.dirtyRow{background:#fffdf3}
   #printArea .pz.pzX tr.ptot td{background:#F8EEF1!important;color:#8A1538;font-size:12.5pt;font-weight:800;border:none;padding:7pt 10pt}
   #printArea .pz.pzX tr.ptot td.tl{text-align:right;padding:8pt 16pt}
   #printArea .pz.pzX tr.ptot .tpl{float:left;background:#8A1538!important;color:#fff!important;border-radius:8px;padding:1px 14px;font-size:12.5pt;margin-right:10px}
+  /* شريط الإجمالي متعدد الخانات (عدد الفعاليات · المدارس · المستفيدين) */
+  #printArea .pz.pzX tr.pbar td.tl{text-align:right;border-left:1px solid #E3C7D0}
+  #printArea .pz.pzX tr.pbar td.tl:last-child{border-left:none}
+  #printArea .pz.pzX table.pSum{width:100%!important;margin:0}
+  #printArea .pz.pzX table.pSum td.rt{text-align:right}
+  #printArea .pz.pzX td.k{text-align:center}
+  /* تقرير المدارس: التخطيط نفسه بألوان تقرير المدارس الحالية (الذهبي الزيتوني) */
+  #printArea .pz.pzGold .pzHead h1{color:#9A7A33}
+  #printArea .pz.pzGold .pzHead h2{color:#7D6320}
+  #printArea .pz.pzGold .pzHead .pt{border-bottom-color:#C9A961}
+  #printArea .pz.pzGold h2.psec{background:#7D6320!important}
+  #printArea .pz.pzGold .pblk{border-color:#7D6320}
+  #printArea .pz.pzGold h3.ptbl{background:#F7F1E3!important;color:#5A4310;border-bottom-color:#E6DBC2}
+  #printArea .pz.pzGold th{background:#F1E7CD!important;color:#5A4310!important;border-bottom-color:#D9CFB6}
+  #printArea .pz.pzGold td{border-bottom-color:#E6DFCF}
+  #printArea .pz.pzGold tbody tr:nth-child(even) td{background:#FBF8F0!important}
+  #printArea .pz.pzGold .rn,#printArea .pz.pzGold .kch{background:#F7F1E3!important;color:#5A4310}
+  #printArea .pz.pzGold tr.ptot td{background:#F7F1E3!important;color:#5A4310}
+  #printArea .pz.pzGold tr.ptot .tpl{background:#7D6320!important}
+  #printArea .pz.pzGold tr.pbar td.tl{border-left-color:#E6DBC2}
 }
 @media(max-width:1024px){.hero{grid-template-columns:1fr}}
 @media(max-width:1100px){
@@ -7041,6 +7061,9 @@ DOCX_THEMES.pzx={...DOCX_THEMES.pz,calm:true,font:'Sakkal Majalla',hfont:'Sakkal
   head:{fill:'F4E4E9',color:'8A1538'},tot:{fill:'F8EEF1',color:'8A1538'},border:'E3E3E3',outer:'8A1538',
   sec:{fill:'8A1538',color:'FFFFFF'},sub:{fill:'F8EEF1',color:'8A1538'},title:'B08D3C',alt:'FAFAFA',
   mar:{t:454,r:454,b:737,l:454}};
+/* تقرير المدارس بتخطيط تقرير المؤسسات وألوان تقرير المدارس (الذهبي الزيتوني) */
+DOCX_THEMES.pzxGold={...DOCX_THEMES.pzx,head:{fill:'F1E7CD',color:'5A4310'},tot:{fill:'F7F1E3',color:'5A4310'},border:'D9CFB6',outer:'7D6320',
+  sec:{fill:'7D6320',color:'FFFFFF'},sub:{fill:'F7F1E3',color:'5A4310'},title:'7D6320',acc:'7D6320',soft:'F7F1E3',alt:'FBF8F0'};
 DOCX_THEMES.ev={...DOCX_THEMES.pz,mar:{t:1700,r:454,b:1050,l:454},hdrLogos:true,pgLeft:true};
 /* شعار الوزارة صورةً (PNG) من الرمز المتجه ليُدرج في ملف الوورد */
 async function logoPng(w,h){
@@ -7072,9 +7095,9 @@ async function docxFromPrintArea(theme){
       if(n.nodeType===3){const t=n.textContent.replace(/\s+/g,' '); if(t.trim())out+=run(t,base); return}
       if(n.nodeType!==1)return;
       const t=(n.textContent||'').replace(/\s+/g,' ').trim(); if(!t)return;
-      if(n.classList.contains('kch')||n.classList.contains('rn'))out+=runShd(' '+t+' ',{...base,b:true,color:'8A1538',fill:'F8EEF1',sz:19});
-      else if(n.classList.contains('npl'))out+=runShd(' '+t+' ',{...base,b:true,color:'FFFFFF',fill:'8A1538',sz:19});
-      else if(n.classList.contains('tpl'))return;
+      if(n.classList.contains('kch')||n.classList.contains('rn'))out+=runShd(' '+t+' ',{...base,b:true,color:(T.acc||'8A1538'),fill:(T.soft||'F8EEF1'),sz:19});
+      else if(n.classList.contains('npl'))out+=runShd(' '+t+' ',{...base,b:true,color:'FFFFFF',fill:(T.acc||'8A1538'),sz:19});
+      else if(n.classList.contains('tpl'))out+=runShd(' '+t+' ',{...base,b:true,color:'FFFFFF',fill:T.acc||'8A1538',sz:21});
       else out+=run(t,base)});
     return out};
   const cpara=(inner,jc)=>`<w:p><w:pPr><w:bidi/><w:jc w:val="${jc}"/><w:spacing w:before="20" w:after="20" w:line="240" w:lineRule="auto"/></w:pPr>${inner}</w:p>`;
@@ -7101,14 +7124,15 @@ async function docxFromPrintArea(theme){
       if(isTot&&tr.children.length===1&&tr.querySelector('.tpl')){
         const c=tr.children[0], pill=(c.querySelector('.tpl').textContent||'').trim();
         const wL=gw.slice(0,nCols-1).reduce((a,b)=>a+b,0);
-        cells=tc(wL,nCols-1,T.tot.fill,cpara(richRuns(c,{b:true,color:T.tot.color,sz:24}),'right'))
-             +tc(gw[nCols-1],1,'8A1538',cpara(run(pill,{b:true,color:'FFFFFF',sz:24}),'center'));
+        const cc=c.cloneNode(true); cc.querySelectorAll('.tpl').forEach(x=>x.remove());
+        cells=tc(wL,nCols-1,T.tot.fill,cpara(richRuns(cc,{b:true,color:T.tot.color,sz:24}),'right'))
+             +tc(gw[nCols-1],1,(T.acc||'8A1538'),cpara(run(pill,{b:true,color:'FFFFFF',sz:24}),'center'));
       }else{
         const alt=!isHead&&!isTot&&(bi++%2===1);
         [...tr.children].forEach(c=>{
           const span=+c.getAttribute('colspan')||1, w=gw.slice(col,col+span).reduce((a,b)=>a+b,0); col+=span;
-          const fill=isHead?T.head.fill:isTot?T.tot.fill:c.classList.contains('hd')?'F8EEF1':alt?T.alt:'';
-          const base=isHead?{b:true,color:T.head.color,sz:21}:isTot?{b:true,color:T.tot.color,sz:23}:{sz:21,b:c.classList.contains('hd'),color:c.classList.contains('hd')?'8A1538':''};
+          const fill=isHead?T.head.fill:isTot?T.tot.fill:c.classList.contains('hd')?(T.soft||'F8EEF1'):alt?T.alt:'';
+          const base=isHead?{b:true,color:T.head.color,sz:21}:isTot?{b:true,color:T.tot.color,sz:23}:{sz:21,b:c.classList.contains('hd'),color:c.classList.contains('hd')?(T.acc||'8A1538'):''};
           const jc=(c.classList.contains('tw')||c.classList.contains('tl'))?'right':'center';
           cells+=tc(w,span,fill,cpara(isHead?run((c.textContent||'').trim(),base):richRuns(c,base),jc));
         });
@@ -7170,7 +7194,7 @@ async function docxFromPrintArea(theme){
         const c1=Math.round(W*.18), c2=W-2*c1;
         const nb='<w:tcBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/></w:tcBorders>';
         const mid=`<w:p><w:pPr><w:bidi/><w:jc w:val="center"/><w:spacing w:before="0" w:after="20"/></w:pPr>${run(g('h1'),{b:true,color:T.title,sz:28})}</w:p>
-          <w:p><w:pPr><w:bidi/><w:jc w:val="center"/><w:spacing w:before="0" w:after="20"/></w:pPr>${run(g('h2'),{b:true,color:'8A1538',sz:38})}</w:p>
+          <w:p><w:pPr><w:bidi/><w:jc w:val="center"/><w:spacing w:before="0" w:after="20"/></w:pPr>${run(g('h2'),{b:true,color:(T.acc||'8A1538'),sz:38})}</w:p>
           <w:p><w:pPr><w:bidi/><w:jc w:val="center"/><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="C9A961"/></w:pBdr><w:spacing w:before="0" w:after="60"/></w:pPr>${run(g('.per'),{sz:22,color:'4A3B3F'})}</w:p>`;
         body+=`<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:bidiVisual/><w:jc w:val="center"/><w:tblLayout w:type="fixed"/>
           <w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr>
@@ -7460,22 +7484,40 @@ function offPrint(page,mode){
     const perLabel=offRange?offRange.label:wk?`الأسبوع ${WK_NAMES[wk]} من شهر ${MN[HM()]} ${HY()}`
       :(wks.length&&wks.length<schWeekNums(HY(),HM()).length?`الأسابيع ${wks.map(w=>WK_NAMES[w]).join(' و')} من شهر ${MN[HM()]} ${HY()}`:`شهر ${MN[HM()]} ${HY()}`);
     const repKind=offRange?(offRange.from?(offRange.day?'التقرير اليومي':'تقرير الفترة'):offRange.months.length===3?'التقرير الربعي':offRange.months.length===1?'التقرير الشهري':'تقرير الفترة'):wk?'التقرير الأسبوعي':'التقرير الشهري';
-    const summary=`<h2 class="psec">أولاً: ${esc(repKind)} للأنشطة والبرامج التربوية بالمدارس خلال الفترة (${esc(perLabel)})</h2>`+schSummaryHTML(hList);
+    /* ── بتصميم تقرير المؤسسات (بطاقات وجداول وإجمالي في التذييل) مع الإبقاء على ألوان تقرير المدارس الحالية ── */
+    const DAYN=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+    const dayOf=d=>{try{return d?DAYN[new Date(d+'T12:00:00').getDay()]:''}catch(e){return ''}};
+    const benN=x=>parseFloat(String(x||'').replace(/[^\d.]/g,''))||0;
+    const fmt=n=>Number(n).toLocaleString('en');
+    const nSch=L=>new Set(L.map(x=>(x.school||'').trim()).filter(Boolean)).size;
+    const card=(title,inner,keep,dense)=>`<div class="pblk${keep?' pKeep':''}${dense?' dense':''}"><h3 class="ptbl">${esc(title)}</h3>${inner}</div>`;
+    const bar=L=>`<tr class="ptot pbar"><td colspan="2" class="tl">عدد الفعاليات<span class="tpl">${fmt(L.length)}</span></td>
+      <td colspan="2" class="tl">عدد المدارس<span class="tpl">${fmt(nSch(L))}</span></td>
+      <td class="tl">عدد المستفيدين<span class="tpl">${fmt(L.reduce((a,x)=>a+benN(x.count),0))}</span></td></tr>`;
+    const sumT=schSummaryHTML(hList).replace('</tbody></table>',bar(hList)+'</tbody></table>');
+    const summary=`<h2 class="psec">أولاً: ${esc(repKind)} للأنشطة والبرامج التربوية بالمدارس (${esc(perLabel)})</h2>`
+      +card('ملخص الأنشطة والبرامج التربوية بالمدارس',sumT,true);
+    const H2=[['م','n'],['اليوم','d'],['التاريخ','d'],['النوع','k'],['اسم المدرسة','w'],['عنوان الفعالية','w'],['الفئة','k'],['عدد المستفيدين','d'],['ملاحظات','nt']];
     const block=(list,dept,i)=>{
-      const rows=list.slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))).map((s,k)=>[k+1,s.school,s.lvl,
-        offRange?(MN[schMonth(s)]||''):(s.week?WK_NAMES[s.week]:''),
-        dmy(s.date),s.type,s.topic,s.by,s.count,s.impact]);
-      return `<div class="pDept"><h2 class="psec">${esc(ORD[i]||(i+2)+' -')}: قسم ${esc(dept||'بلا قسم')}</h2>
-        <table class="pBig pTight pSch"><colgroup>${widths.map(w=>`<col style="width:${w}">`).join('')}</colgroup>
-         <thead><tr>${head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${
-          rows.map(r=>`<tr>${r.map((c,j)=>`<td class="${[1,5,6,7].includes(j)?'w':'n'}">${esc(c==null?'':String(c))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+      const L=list.slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+      const body=L.map((x,k)=>`<tr><td class="n"><span class="rn">${k+1}</span></td><td class="d">${esc(dayOf(x.date)||'—')}</td>
+        <td class="d">${esc(dmy(x.date)||'—')}</td><td class="k">${x.type?`<span class="kch">${esc(x.type)}</span>`:'—'}</td>
+        <td class="tw">${esc(x.school||'—')}</td><td class="tw">${esc(x.topic||'—')}</td><td class="k">${esc(schDomain(x))}</td>
+        <td class="n">${esc(x.count==null||x.count===''?'—':String(x.count))}</td><td class="nt">${esc((x.desc||'').trim()||'—')}</td></tr>`).join('');
+      const tb=`<table><thead><tr>${H2.map(([h,c])=>`<th class="${c}">${esc(h)}</th>`).join('')}</tr></thead><tbody>${body}
+        <tr class="ptot pbar"><td colspan="4" class="tl">إجمالي الفعاليات<span class="tpl">${fmt(L.length)}</span></td>
+        <td colspan="2" class="tl">عدد المدارس<span class="tpl">${fmt(nSch(L))}</span></td>
+        <td colspan="3" class="tl">عدد المستفيدين<span class="tpl">${fmt(L.reduce((a,x)=>a+benN(x.count),0))}</span></td></tr></tbody></table>`;
+      return `<div class="pOwn"><h2 class="psec">${esc(ORD[i]||(i+2)+' -')}: قسم ${esc(dept||'بلا قسم')}</h2>${card('تفاصيل فعاليات المدارس والبرامج التربوية',tb,L.length<=20,L.length>8)}</div>`;
     };
-    $('#printArea').innerHTML=`<div class="pSchRep">${pHead('إدارة الدعوة والإرشاد الديني',sub,'')}${summary}${
-      depts.map((d,i)=>block(hList.filter(s=>(s.dept||'')===d),d,i)).join('')}</div>`;
-    if(offRange)$('#printArea').querySelectorAll('.pSch thead th:nth-child(4)').forEach(th=>th.textContent='الشهر');
-    if(mode==='docx'){docxFromPrintArea('sch');return}
-    if(!offRange)fitOnePage('.pSchRep',404,274);     /* A3 أفقي: 420×297 ناقص الهوامش */
-    setTimeout(()=>print(),150);
+    $('#printArea').innerHTML=`<div class="pz pzX pzGold">
+      <div class="pzHead"><svg class="wmark" viewBox="0 0 198.19 84" aria-hidden="true"><use href="#i-wzara"/></svg>
+        <div class="pt"><h1>إدارة الدعوة والإرشاد الديني</h1><h2>تقرير فعاليات المدارس</h2>
+        <div class="per">${esc(perLabel)}</div></div><div class="wsp"></div></div>
+      ${summary}${depts.map((d,i)=>block(hList.filter(x=>(x.dept||'')===d),d,i)).join('')}
+      <div class="pzFoot">وزارة الأوقاف والشؤون الإسلامية — إدارة الدعوة والإرشاد الديني · تاريخ الطباعة: ${dmy(todayISO())}</div></div>`;
+    if(mode==='docx'){docxFromPrintArea('pzxGold');return}
+    printWithPage(`@page:first{margin-top:0}@page{size:A4 landscape;margin:${PZ_TOP_MM}mm 0 13mm 0;@bottom-center{content:"وزارة الأوقاف والشؤون الإسلامية — إدارة الدعوة والإرشاد الديني · تاريخ الطباعة: ${dmy(todayISO())} · صفحة " counter(page) " من " counter(pages);font-family:"Sakkal Majalla",serif;font-size:10pt;color:#4A5A6B;direction:rtl;vertical-align:middle;padding-bottom:3mm}}`);
     return;
   }
   if(!rows.length){toast('لا توجد صفوف في التقرير',true);return}
