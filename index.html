@@ -585,6 +585,19 @@ textarea{resize:vertical;min-height:64px;line-height:1.65}
 .annStat .n::after{content:"";display:inline-block;width:1px;height:16px;background:var(--grid);margin:0 8px 0 10px;vertical-align:middle}
 .annStat .l{font-size:12.5px;color:var(--ink2);font-weight:600;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .annStat .m{margin-top:8px}
+/* لوحة القيادة */
+.dshT{width:100%;border-collapse:collapse;font-size:13.5px}
+.dshT th{background:var(--g-th,#F1F6F3);color:var(--g-th-ink,#164B3A);padding:7px 6px;font-weight:700;border-bottom:1px solid var(--grid);white-space:nowrap}
+.dshT td{padding:7px 6px;border-bottom:1px solid var(--grid);text-align:center;vertical-align:middle}
+.dshT td.rt{text-align:right}
+.dshT tbody tr:hover td{background:var(--g-hover,#F5FAF7)}
+.dshBar{display:inline-block;width:70px;height:7px;background:var(--grid);border-radius:4px;overflow:hidden;vertical-align:middle;margin-inline-end:6px}
+.dshBar i{display:block;height:100%;border-radius:4px}
+.dshG2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);margin-bottom:var(--s3)}
+@media (max-width:1100px){.dshG2{grid-template-columns:1fr}}
+#vDash.dshShow{position:fixed;inset:0;z-index:300;overflow:auto;background:var(--plane);max-width:none;padding:24px 32px}
+#vDash.dshShow .dshT{font-size:17px}#vDash.dshShow .annStat .n{font-size:30px}#vDash.dshShow .annStat .l{font-size:15px}
+#vDash.dshShow .pageHead{font-size:26px}
 #a_table th.qh{width:88px;text-align:center}
 #a_table td.qc{padding:5px 6px}
 .qin{width:100%;text-align:center;padding:6px 4px;border:1px solid var(--grid);border-radius:7px;
@@ -1604,6 +1617,9 @@ M2620 1116 c0 -3 9 -10 20 -16 11 -6 20 -8 20 -6 0 3 -9 10 -20 16 -11 6 -20
 
 <nav class="sidebar" id="sidebar" aria-label="أقسام النظام">
   <div class="tabs">
+    <div class="navGroup" data-grp-dash><h5><svg class="ic"><use href="#i-chart"/></svg>القيادة</h5>
+      <button class="tab" data-view="dash"><span class="tabIc"><svg class="ic"><use href="#i-chart"/></svg></span>لوحة القيادة</button>
+    </div>
     <div class="navGroup" data-grp-plans><h5><svg class="ic"><use href="#i-target"/></svg>الخطط<span class="navHint">التنفيذية والاستراتيجية</span></h5>
       <button class="tab on" data-view="exec"><span class="tabIc"><svg class="ic"><use href="#i-flag"/></svg></span>الخطة التنفيذية</button>
       <button class="tab" data-view="strat"><span class="tabIc"><svg class="ic"><use href="#i-target"/></svg></span>الخطة الاستراتيجية</button>
@@ -1967,6 +1983,19 @@ M2620 1116 c0 -3 9 -10 20 -16 11 -6 20 -8 20 -6 0 3 -9 10 -20 16 -11 6 -20
     <th style="width:120px">التفاعل</th>
     <th style="width:210px">القسم</th><th style="width:140px">الحالة</th><th style="width:96px"></th>
   </tr></thead><tbody id="h_tbody"></tbody></table></section>
+</main>
+<main class="wrap view" id="vDash" hidden>
+  <div class="crumb" id="crumb_dash"></div>
+  <h1 class="pageHead" id="head_dash"></h1>
+  <section class="card filters" style="align-items:center">
+    <div class="planSw" id="dsh_q" style="margin:0"></div>
+    <span style="flex:1"></span>
+    <button class="btn" id="dsh_noreply" title="الأقسام التي لم ترد على المهام المتأخرة"><svg class="ic"><use href="#i-alert"/></svg>تقرير من لم يرد</button>
+    <button class="btn" id="dsh_commit" title="التزام الأقسام: الترتيب ونسبة الرد في الوقت"><svg class="ic"><use href="#i-chart"/></svg>التزام الأقسام</button>
+    <button class="btn" id="dsh_quarter" title="التقرير الربعي الشامل بغلاف وفهرس"><svg class="ic"><use href="#i-print"/></svg>التقرير الربعي</button>
+    <button class="btn btn-p" id="dsh_show" title="ملء الشاشة بخط كبير لاجتماع الإدارة"><svg class="ic"><use href="#i-target"/></svg>وضع العرض</button>
+  </section>
+  <div id="dsh_body"></div>
 </main>
 <main class="wrap view" id="vPrisons" hidden>
   <div class="crumb" id="crumb_prisons"></div>
@@ -3906,6 +3935,7 @@ const pagesRegRec=()=>(OFF&&state&&state.office&&OFF().tasks||[]).find(r=>r&&r.p
 const hiddenPages=()=>{const r=pagesRegRec(); return (r&&r.hidden)||{}};
 const canSeePlan=plan=>{
   if(!me)return false;
+  if(plan==='dash')return isManager();               /* لوحة القيادة للمدير وحده */
   if(hiddenPages()[plan])return false;               /* صفحة مخفية من لوحة المدير: لا تظهر لأحد حتى تُعاد */
   if(isManager())return true;                       /* المدير يرى كل شيء دائماً */
   /* المدير يفتح ويغلق كل صفحة لكل مستخدم من لوحته */
@@ -4892,6 +4922,13 @@ function tkDeptRemState(d,L){
 /* الأقسام التي حان تذكيرها الآن */
 const tkRemDue=()=>tkLateByDept().filter(([d,L])=>tkDeptRemState(d,L).due);
 /* نسخة الرسالة حسب درجة التصعيد */
+/* التصعيد المقترح (لا يُضاف شيء إلا بموافقة المدير): من التذكير الثالث رئيس القسم، ومن الخامس مكتب المساعد */
+function tkEscSug(d,n){
+  const M=mailReg(), m=M[d]||{}, base=splitMails(m.cc), S=[];
+  if(n>=TK_ESC_HEAD){const x=splitMails(m.head).filter(e=>!base.includes(e)); if(x.length)S.push({who:'رئيس القسم',mails:x,from:TK_ESC_HEAD})}
+  if(n>=TK_ESC_ASST&&d!==TK_ASST){const x=splitMails((M[TK_ASST]||{}).to).filter(e=>!base.includes(e)); if(x.length)S.push({who:TK_ASST,mails:x,from:TK_ESC_ASST})}
+  return {base,S};
+}
 function tkEscCc(d,n){
   const M=mailReg(), m=M[d]||{}, cc=splitMails(m.cc), add=[];
   if(n>=TK_ESC_HEAD)splitMails(m.head).forEach(x=>{if(!cc.includes(x)){cc.push(x);add.push('رئيس القسم')}});
@@ -4947,9 +4984,10 @@ function tkTaskRemLog(id){
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-tkrl]'); if(!b)return; e.stopPropagation(); e.preventDefault(); tkTaskRemLog(b.dataset.tkrl)},true);
 function tkRemLine(t){
+  const escChip=t.esc&&!t.done?`<span class="chip" style="background:#B42318;color:#fff" title="رُفعت للمدير ${esc(dmy(String(t.esc.at).slice(0,10)))} بعد التذكير ${tkOrd(t.esc.n)} على ${esc(t.esc.dept||'')}">${icon('alert')}مُصعَّدة للمدير</span>`:'';
   const D=Object.entries(t.remind||{}).filter(([d,L])=>L&&L.length&&(repSecs('tasks',t).includes(d)||tkPend(t).includes(d)));
-  if(!D.length)return '';
-  return `<div class="tkRemBox">${D.map(([d,L])=>`<div class="tkRemD"><b>${icon('mail')}${esc(d)} — أُرسل ${L.length} ${L.length===1?'مرة':L.length===2?'مرتان':'مرات'}</b>
+  if(!D.length)return escChip?`<div class="tkRemBox">${escChip}</div>`:'';
+  return `<div class="tkRemBox">${escChip}${D.map(([d,L])=>`<div class="tkRemD"><b>${icon('mail')}${esc(d)} — أُرسل ${L.length} ${L.length===1?'مرة':L.length===2?'مرتان':'مرات'}</b>
     <div class="tkRem">${L.map((x,i)=>`<span title="${esc((x.via||'')+(x.by?' — '+x.by:''))}">${tkLbl(i+1)}: ${tkDT(x.at)}</span>`).join('')}</div></div>`).join('')}
     <button class="btn" data-tkrl="${esc(t.id)}" style="padding:1px 10px;font-size:12px;min-height:0;margin-top:4px">${icon('cal')}سجل التذكيرات</button></div>`;
 }
@@ -7641,6 +7679,9 @@ function offWire(){
   on('#t_remind','click',tkRemindDlg);
   on('#t_remLog','click',tkRemLog);
   on('#t_commit','click',tkCommitDlg);
+  on('#dsh_noreply','click',()=>repNoReply()); on('#dsh_commit','click',tkCommitDlg);
+  on('#dsh_quarter','click',repQuarterDlg); on('#dsh_show','click',dshPresent);
+  on('#dsh_q','click',e=>{const b=e.target.closest('[data-dshq]'); if(!b)return; DSH.q=+b.dataset.dshq; dshRender(); $('#hSub').textContent=subTitle()});
   document.addEventListener('click',e=>{if(e.target.closest('[data-remopen]'))tkRemindDlg()});
   on('#t_imp','click',()=>openImport('tasks'));
   /* الأرشيف */
@@ -10929,7 +10970,8 @@ const subTitle=()=>({
   arch:()=>`الأرشيف المركزي · ${offAll('memos').length} مذكرة`,
   schools:()=>`فعاليات المدارس · ${MN[HM()]} ${state.year}`,
   prisons:()=>`المؤسسات الإصلاحية · ${MN[ZM()]} ${ZY()}`,
-  dir:()=>`الدليل والمراسلات · ${offAll('contacts').length} رقم`
+  dir:()=>`الدليل والمراسلات · ${offAll('contacts').length} رقم`,
+  dash:()=>`لوحة القيادة · الربع ${QN[DSH.q||Q()]} ${state.year}`
 }[view]||(()=>''))();
 const VIEW_META={
   exec:{crumb:['متابعة الخطط','الخطة التنفيذية'],title:()=>`الخطة التنفيذية — الربع ${QN[Q()]} ${state.year}`},
@@ -10941,13 +10983,14 @@ const VIEW_META={
   schools:{crumb:['مكتب الإدارة','فعاليات المدارس'],title:()=>`فعاليات المدارس — ${MN[HM()]} ${state.year}`},
   prisons:{crumb:['مكتب الإدارة','المؤسسات الإصلاحية والعقابية'],
     title:()=>`الإحصائية الشهرية للمؤسسات الإصلاحية والعقابية — ${pzPeriod()}`},
-  dir:{crumb:['مكتب الإدارة','الدليل والمراسلات'],title:()=>'دليل الأرقام والمراسلات'}};
+  dir:{crumb:['مكتب الإدارة','الدليل والمراسلات'],title:()=>'دليل الأرقام والمراسلات'},
+  dash:{crumb:['القيادة','لوحة القيادة'],title:()=>`لوحة القيادة — الإنجاز الحي للإدارة ${state.year}`}};
 function paintHead(){
   const m=VIEW_META[view]; if(!m)return;
   const c=$('#crumb_'+view), h=$('#head_'+view);
   if(c)c.innerHTML=`<span>النظام</span><span class="sep">›</span><span>${esc(m.crumb[0])}</span>
     <span class="sep">›</span><b>${esc(m.crumb[1])}</b>`;
-  const HI={exec:'flag',strat:'target',monthly:'cal',events:'sparkle',schools:'school',prisons:'building',tasks:'tasks',arch:'archive',dir:'phone'};
+  const HI={dash:'chart',exec:'flag',strat:'target',monthly:'cal',events:'sparkle',schools:'school',prisons:'building',tasks:'tasks',arch:'archive',dir:'phone'};
   if(h)h.innerHTML=`<span class="headIc"><svg class="ic"><use href="#i-${HI[view]||'cal'}"/></svg></span><span${view==='prisons'?' style="font-size:16px"':''}>${esc(m.title())}</span>
     <small>${esc(isManager()?'كل الأقسام':(me.dept||me.name))}</small>`;
 }
@@ -10965,7 +11008,8 @@ function setView(v){
   $('#vMonthly').hidden=v!=='monthly';$('#vEvents').hidden=v!=='events';
   $('#vTasks').hidden=v!=='tasks';$('#vArch').hidden=v!=='arch';
   $('#vSchools').hidden=v!=='schools';$('#vDir').hidden=v!=='dir';
-  $('#vPrisons').hidden=v!=='prisons';
+  $('#vPrisons').hidden=v!=='prisons'; $('#vDash').hidden=v!=='dash';
+  if(v==='dash')dshRender();
   if(v==='monthly')mRender(); if(v==='events')vRender();
   if(v==='tasks')tRender(); if(v==='arch')aRender();
   if(v==='schools')hRender(); if(v==='dir')dRender(); if(v==='prisons')zRender();
@@ -11012,6 +11056,15 @@ function startApp(){
   /* وضع الميدان: يُفتح تلقائياً أول دخول في اليوم */
   try{const k=KEY+'_fs_'+me.u; if(store.get(k)!==todayISO()){store.set(k,todayISO()); setTimeout(()=>fsShow(false),900)}}catch(e){}
   try{if(isManager()){ledPurge(); setTimeout(bkCheck,2500)}}catch(e){}
+  /* كل أحد: تنبيه المدير بتقرير «من لم يرد» مرة واحدة في اليوم */
+  try{const k=KEY+'_nr_'+me.u; if(isManager()&&new Date().getDay()===0&&store.get(k)!==todayISO()){store.set(k,todayISO());
+    setTimeout(()=>{const T=offAll('tasks').filter(t=>!t.done&&taskStatus(t).k==='late'); if(!T.length)return;
+      const D=new Set(T.flatMap(tkPend));
+      offDrawer('تقرير الأحد: من لم يرد',`${D.size} قسماً · ${T.length} مهمة متأخرة`,
+        `<p>الأقسام التي لم ترد على مهام متأخرة: <b>${esc([...D].join('، '))}</b>.</p><p class="hint">التقرير الكامل بالتفاصيل وعدد التذكيرات وأطول مهمة متأخرة جاهز للطباعة.</p>`,
+        `<button class="btn btn-p" id="nrGo">${icon('print')}عرض التقرير</button><button class="btn" id="nrDash">${icon('chart')}لوحة القيادة</button><button class="btn" id="dCancel">لاحقاً</button>`);
+      $('#dCancel').onclick=closeDrawer; $('#nrGo').onclick=()=>{closeDrawer(); repNoReply()}; $('#nrDash').onclick=()=>{closeDrawer(); setView('dash')};
+      $('#ov').classList.add('on')},6000)}}catch(e){}
 }
 
 /* ══════════ تبويبات الصفحات المفتوحة: طبقة تنقّل فوق الصفحات الحالية ══════════
@@ -11559,7 +11612,13 @@ function tkRemindDlg(flash){
       return `<div class="remDept"${F?' style="border-color:#9BC5A8;box-shadow:0 0 0 2px #E7F4EA"':R.due?' style="border-color:#E9B4AC;box-shadow:0 0 0 2px #FBE9E7"':''}><h4>${icon('user')}${esc(d)}
         <span class="chip" style="${R.due?'background:#B42318;color:#fff':'background:#EEF3FA'}">${R.due?'حان تذكيره':`التذكير التالي بعد ${R.next} يوم`}</span>
         <span class="n">${L.length} مهمة متأخرة · ${last?`آخر تذكير ${esc(dmy(last.slice(0,10)))}`:'لم يُذكَّر بعد'} · ${R.n>1?`أُرسل ${tkLbl(R.n-1)}`:'لم يُرسَل بعد'}</span></h4>
-      ${E.add.length?`<p class="hint" style="margin:0 0 6px;color:var(--brand)">تصعيد: يُضاف في النسخة ${esc(E.add.join(' و'))}.</p>`:(R.n>=TK_ESC_HEAD&&!splitMails((M[d]||{}).head).length?`<p class="hint" style="margin:0 0 6px;color:#8c1d18">هذا التذكير ${tkOrd(R.n)}: أضف بريد رئيس القسم من «بريد الأقسام» ليُضاف في النسخة.</p>`:'')}
+      ${(()=>{const X=tkEscSug(d,R.n); return X.S.length?`<div class="hint" style="margin:0 0 6px;padding:6px 10px;border:1px dashed #E9B4AC;border-radius:8px;background:#FFF8F6">
+          <b style="color:#B42318">${icon('alert')}تصعيد مقترح — هذا التذكير ${tkOrd(R.n)}:</b> ${X.S.map((x,k)=>`<label style="display:inline-flex;align-items:center;gap:4px;margin-inline-start:10px;cursor:pointer">
+          <input type="checkbox" data-escadd="${gi}" data-escmails="${esc(x.mails.join(','))}"> إضافة ${esc(x.who)} في النسخة</label>`).join('')}
+          <small style="display:block;margin-top:2px">لا يُضاف أحد إلا إذا اخترته.</small></div>`:''})()}
+      ${R.n>=TK_ESC_ASST?`<div class="hint" style="margin:0 0 6px;color:#8c1d18">${icon('alert')}بلغ التذكير ${tkOrd(R.n)} — يُقترح رفع هذه المهام للمدير لاتخاذ إجراء.
+          <button class="btn" data-rmesc="${gi}" style="padding:2px 10px;min-height:0;margin-inline-start:6px">${icon('up')}رفع للمدير</button></div>`:''}
+      ${(R.n>=TK_ESC_HEAD&&!splitMails((M[d]||{}).head).length?`<p class="hint" style="margin:0 0 6px;color:#8c1d18">هذا التذكير ${tkOrd(R.n)}: أضف بريد رئيس القسم من «بريد الأقسام» ليُضاف في النسخة.</p>`:'')}
       <table><thead><tr><th>المهمة</th><th>الموعد</th><th>التجاوز</th><th>التذكير (عدد مرات الإرسال)</th></tr></thead><tbody>${L.map(t=>{const RL=tkRem(t,d), lx=RL[RL.length-1];
         return `<tr><td>${t.no?`<b>${esc(t.no)}</b> `:''}${esc(t.title||'')}</td>
         <td>${esc(dmy(t.due))}</td><td class="late">${tkLateDays(t)} يوم</td>
@@ -11585,15 +11644,22 @@ function tkRemindDlg(flash){
     const bd=$('#dBody'); if(bd)bd.scrollTop=0;
     return N};
   $('#dBody').onclick=async e=>{
-    const b=e.target.closest('[data-rmsend],[data-rmcopy],[data-rmmark]'); if(!b)return;
+    const b=e.target.closest('[data-rmsend],[data-rmcopy],[data-rmmark],[data-rmesc]'); if(!b)return;
     /* ربط المهام بنسختها الحالية في البيانات (السحابة تستبدل الكائنات عند كل تحديث) حتى يُحفظ التذكير فعلاً */
     {const cur=new Map(offAll('tasks').map(x=>[x.id,x])); G.forEach(g=>{g[1]=g[1].map(t=>cur.get(t.id)||t)})}
-    const gi=+(b.dataset.rmsend??b.dataset.rmcopy??b.dataset.rmmark), [d,L]=G[gi], T=tkRemindText(d,L);
+    const gi=+(b.dataset.rmsend??b.dataset.rmcopy??b.dataset.rmmark??b.dataset.rmesc), [d,L]=G[gi], T=tkRemindText(d,L);
+    if(b.dataset.rmesc!==undefined){if(!confirm(`رفع ${L.length} مهمة متأخرة على «${d}» للمدير؟ تظهر في لوحة القيادة بعلامة «مُصعَّدة».`))return;
+      const at=new Date().toISOString(); L.forEach(t=>{t.esc={at,by:me.name||me.u,dept:d,n:tkRem(t,d).length};
+        t.updates=t.updates||[]; t.updates.unshift({at,by:me.name||me.u,txt:`رُفعت للمدير بعد التذكير ${tkOrd(tkRem(t,d).length)} على ${d}`})});
+      sysLog('رفع مهام للمدير',`${d} · ${L.length} مهمة`); saveNow(); tRender(); tkRemindDlg({d,html:`✓ رُفعت ${L.length} مهمة على «${esc(d)}» للمدير، وتظهر في لوحة القيادة.`}); return}
     if(b.dataset.rmcopy!==undefined){const ok=await tkCopyHtml(tkRemindHtml(d,L),T.body);
       if(ok){b.innerHTML=`${icon('check')}نُسخ الجدول`; setTimeout(()=>{b.innerHTML=`${icon('edit')}نسخ الجدول`},2500)}
       toast(ok?'نُسخ الجدول — في نص الرسالة اضغط Ctrl+A ثم Ctrl+V':'تعذّر النسخ — جرّب مرة أخرى',!ok); return}
     if(b.dataset.rmmark!==undefined){if(!confirm(`تسجيل تذكير لـ «${d}» بـ ${L.length} مهمة؟`))return; const N=log(gi,'يدوي'); toast(`سُجِّل التذكير ${tkOrd(Math.max(...N))} على ${d}`); return}
-    const m=M[d]||{}, html=tkRemindHtml(d,L), E=tkEscCc(d,tkDeptRemState(d,L).n);   /* الجدول قبل تسجيل التذكير حتى تظهر أرقامه الصحيحة */
+    const m=M[d]||{}, html=tkRemindHtml(d,L);
+    /* النسخة: نسخة القسم المعتمدة + ما اختاره المدير من التصعيد المقترح فقط */
+    const pick=[...document.querySelectorAll(`#dBody [data-escadd="${gi}"]:checked`)].flatMap(x=>x.dataset.escmails.split(',')).filter(Boolean);
+    const E={cc:[...new Set([...tkEscSug(d,tkDeptRemState(d,L).n).base,...pick])],add:pick};   /* الجدول قبل تسجيل التذكير حتى تظهر أرقامه الصحيحة */
 
     const ok=await tkCopyHtml(html,T.body);
     /* الرسالة تُفتح وفيها جدول المهام نصاً دائماً، والجدول الملوّن في الحافظة لمن أراد استبداله */
@@ -11781,11 +11847,12 @@ function gsRun(){
     Mn.innerHTML=it('morning','target','وضع الميدان اليوم','يفتح كل صباح')
       +(canSeePlan('tasks')?it('tkmorn','print','التقرير الصباحي للمهام','PDF عرضي'):'')
       +'<hr>'+it('weekly','cal','التقرير الأسبوعي','الخميس')+it('monthly','chart','التقرير الشهري الموحَّد','')
+      +(mgr?it('quarter','print','التقرير الربعي الشامل','بغلاف وفهرس')+it('noreply','alert','تقرير من لم يرد','الأحد'):'')
       +(canSeePlan('tasks')?it('commit','chart','التزام الأقسام',''):'')
       +(mgr?'<hr>'+it('trash','trash','سلة المحذوفات','30 يوماً')+it('hist','edit','آخر التغييرات','')+it('backup','dl','نسخة احتياطية الآن',ledBackupAgo()):'');
     Mn.hidden=!Mn.hidden; R.hidden=true});
   Mn.addEventListener('click',e=>{const b=e.target.closest('[data-gst]'); if(!b)return; Mn.hidden=true;
-    ({morning:()=>fsShow(true),tkmorn:tkMorning,weekly:()=>repWeekly(),monthly:repMonthlyDlg,commit:tkCommitDlg,
+    ({morning:()=>fsShow(true),tkmorn:tkMorning,weekly:()=>repWeekly(),monthly:repMonthlyDlg,commit:tkCommitDlg,quarter:repQuarterDlg,noreply:()=>repNoReply(),
       trash:ledTrashDlg,hist:ledRecentDlg,backup:()=>{downloadBackup()}})[b.dataset.gst]()});
 })();
 
@@ -12075,12 +12142,20 @@ function repMonthlyDlg(){
   $('#rmGo').onclick=()=>{const mm=+$('#rmM').value, yy=+ar2en($('#rmY').value)||y; closeDrawer(); repMonthly(yy,mm)};
   $('#ov').classList.add('on');
 }
-function repMonthly(y,m){
-  const ym=`${y}-${String(m).padStart(2,'0')}`, from=ym+'-01', to=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`, inR=d=>d&&d>=from&&d<=to;
+/* m: شهر واحد، أو قائمة أشهر (للتقرير الربعي) — opt.q يضيف إنجاز الخطة التنفيذية والغلاف */
+function repMonthly(y,m,opt={}){
+  const MS=Array.isArray(m)?m:[m], m0=Math.min(...MS), m1=Math.max(...MS);
+  const from=`${y}-${String(m0).padStart(2,'0')}-01`, to=`${y}-${String(m1).padStart(2,'0')}-${String(new Date(y,m1,0).getDate()).padStart(2,'0')}`, inR=d=>d&&d>=from&&d<=to;
   const num=v=>parseFloat(ar2en(String(v||'')).replace(/[^\d.]/g,''))||0;
   const tbl=(h,rows)=>`<table class="rpT"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${h.length}">لا يوجد</td></tr>`}</tbody></table>`;
   const grp=(L,key,val)=>{const g={}; L.forEach(x=>{const k=key(x)||'غير محدَّد'; g[k]=g[k]||{n:0,v:0}; g[k].n++; g[k].v+=val?val(x):0}); return Object.entries(g).sort((a,b)=>b[1].n-a[1].n)};
   const S=[];
+  /* التقرير الربعي: إنجاز الخطة التنفيذية حسب القسم وأكثر المشاريع تأخراً */
+  if(opt.q&&String(y)===String(state.year)&&canSeePlan('exec')){const {L,late,P}=dshExec(opt.q);
+    S.push(['إنجاز الخطة التنفيذية',`<div class="rpK"><span><b>${P.length}</b> مشروعاً</span><span><b>${L.reduce((a,x)=>a+x.done,0)}</b> مكتملاً</span>
+      <span><b>${L.reduce((a,x)=>a+x.late,0)}</b> متأخراً</span><span>تعبئة الربع: <b>${pct(L.reduce((a,x)=>a+x.f,0),P.length)}%</b></span></div>
+      ${tbl(['م','القسم','المشاريع','مكتملة','قيد الإنجاز','متأخرة','متوسط الإنجاز السنوي','تعبئة الربع'],L.map((x,i)=>`<tr><td>${i+1}</td><td class="rt">${esc(x.d)}</td><td>${x.n}</td><td>${x.done}</td><td>${x.prog}</td><td>${x.late}</td><td>${x.ach===null?'—':x.ach+'%'}</td><td>${x.fill}%</td></tr>`).join(''))}
+      <h3 class="ptbl">المشاريع المتأخرة</h3>${tbl(['م','المشروع','القسم','السبب'],late.map((x,i)=>`<tr><td>${i+1}</td><td class="rt">${esc(x.p.name||'')}</td><td>${esc(x.p.dept||'')}</td><td class="rt">${esc(x.s.why||'')}</td></tr>`).join(''))}`])}
   if(canSeePlan('events')){const ev=[]; Object.values(state.years||{}).forEach(Y=>(Y.events||[]).forEach(e=>{if(inR(evFrom(e)))ev.push(e)}));
     const G=grp(ev,e=>e.dept,e=>num(e.ben));
     S.push(['الفعاليات',`<div class="rpK"><span><b>${ev.length}</b> فعالية</span><span><b>${ev.reduce((a,e)=>a+num(e.ben),0).toLocaleString('en')}</b> مستفيد</span><span><b>${ev.reduce((a,e)=>a+num(e.progs),0)}</b> برنامجاً منفذاً</span></div>
@@ -12090,7 +12165,7 @@ function repMonthly(y,m){
     S.push(['فعاليات المدارس',`<div class="rpK"><span><b>${L.length}</b> فعالية</span><span><b>${new Set(L.map(s=>s.school)).size}</b> مدرسة</span><span><b>${L.reduce((a,s)=>a+num(s.count),0).toLocaleString('en')}</b> مستفيد</span>
       <span>بنين ${L.length-B.length} · بنات ${B.length}</span><span><b>${L.filter(s=>s.state==='approved').length}</b> معتمدة</span></div>
       ${tbl(['م','القسم','عدد الفعاليات','المستفيدون'],G.map(([d,x],i)=>`<tr><td>${i+1}</td><td class="rt">${esc(d)}</td><td>${x.n}</td><td>${x.v.toLocaleString('en')}</td></tr>`).join(''))}`])}
-  if(canSeePlan('prisons')){const sv=offRange; let GR=[]; try{offRange={y:String(y),months:[m],label:''}; GR=pzGrandRows(pzMySecs())}finally{offRange=sv}
+  if(canSeePlan('prisons')){const sv=offRange; let GR=[]; try{offRange={y:String(y),months:MS,label:''}; GR=pzGrandRows(pzMySecs())}finally{offRange=sv}
     S.push(['المؤسسات العقابية والإصلاحية',`<div class="rpK"><span><b>${GR.reduce((a,r)=>a+(+r.n||0),0)}</b> درساً وخاطرة وحلقة</span><span><b>${GR.reduce((a,r)=>a+(+r.ben||0),0).toLocaleString('en')}</b> مستفيد</span></div>
       ${tbl(['م','اسم البرنامج / الجهة','الفئة','الوعاظ / المدرسون','الدروس، الخواطر، الحلقات','المستفيدون'],GR.map((r,i)=>`<tr><td>${i+1}</td><td class="rt">${esc(r.name)}</td><td>${esc(pzGender(r.sec))}</td><td>${r.auto}</td><td>${r.n}</td><td>${(+r.ben||0).toLocaleString('en')}</td></tr>`).join(''))}`])}
   if(canSeePlan('tasks')){const T=offAll('tasks'), nw=T.filter(t=>inR(tkSent(t))), dn=T.filter(t=>inR(t.doneAt)), lt=T.filter(t=>!t.done&&taskStatus(t).k==='late');
@@ -12099,10 +12174,136 @@ function repMonthly(y,m){
   if(canSeePlan('arch')){const M=offAll('memos'), inM=M.filter(x=>inR(x.date));
     S.push(['الأرشيف والمذكرات',`<div class="rpK"><span><b>${inM.length}</b> مذكرة واردة</span><span><b>${inM.filter(x=>x.done).length}</b> أُنجزت</span><span><b>${M.filter(x=>!x.done).length}</b> تحت المتابعة الآن</span></div>
       ${tbl(['م','رقم المذكرة','الموضوع','الجهة المرسلة','التاريخ','الحالة'],inM.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.no||'')}</td><td class="rt">${esc(x.title||'')}</td><td>${esc(x.sender||'')}</td><td>${esc(dmy(x.date))}</td><td>${esc(memoStatus(x).t)}</td></tr>`).join(''))}`])}
-  const ORD=['أولاً','ثانياً','ثالثاً','رابعاً','خامساً','سادساً'];
+  const ORD=['أولاً','ثانياً','ثالثاً','رابعاً','خامساً','سادساً','سابعاً'];
+  const per=opt.q?`الربع ${QN[opt.q]} ${y} (${MN[m0]} — ${MN[m1]})`:MS.length>1?`من ${MN[m0]} إلى ${MN[m1]} ${y}`:`شهر ${MN[m0]} ${y}`;
+  const cover=opt.q?`<div style="text-align:center;padding:60pt 0 40pt"><div style="font-size:30pt;font-weight:800;color:#7A1F3D">التقرير الربعي الشامل</div>
+      <div style="font-size:20pt;margin-top:10pt">${esc(per)}</div><div style="font-size:14pt;margin-top:24pt;color:#555">إدارة الدعوة والإرشاد الديني — وزارة الأوقاف والشؤون الإسلامية</div>
+      <div style="font-size:12pt;margin-top:8pt;color:#777">تاريخ الإصدار: ${dmy(todayISO())}</div></div><div class="pbreak"></div>`:'';
   const toc=`<h2 class="psec">الفهرس</h2><ol class="rpToc">${S.map(([t])=>`<li>${esc(t)}</li>`).join('')}</ol>`;
-  const body=toc+S.map(([t,h],i)=>`<div class="pbreak"></div><h2 class="psec">${ORD[i]}: ${esc(t)}</h2>${h}`).join('');
-  repPrint('التقرير الشهري الموحَّد',`شهر ${MN[m]} ${y}`,body,`التقرير الشهري ${MN[m]} ${y}`);
+  const body=cover+toc+S.map(([t,h],i)=>`<div class="pbreak"></div><h2 class="psec">${ORD[i]}: ${esc(t)}</h2>${h}`).join('');
+  const ttl=opt.q?'التقرير الربعي الشامل':'التقرير الشهري الموحَّد';
+  repPrint(ttl,per,body,`${ttl} ${per}`);
+}
+
+
+/* ══════════ لوحة القيادة (للمدير): الإنجاز الحي · التزام الأقسام · المصعَّد · الميدان ══════════ */
+const DSH={q:null};
+/* هل عُبِّئ المشروع في ربع معيّن؟ (كما في لوحة حالة التعبئة) */
+const dshFilled=(p,q)=>{const d=(p.qd||{})[q]||{};
+  return String(p['q'+q]||'').trim()!==''||['achieved','challenges','solutions','actual'].some(f=>String(d[f]||'').trim()!=='')};
+function dshExec(q){
+  const P=(YR().exec||{}).projects||[], pq=q>1?q-1:0, closed=k=>!!((YR().locks||{})[k]);
+  const D={};
+  P.forEach(p=>{const d=p.dept||'غير محدَّد', x=D[d]=D[d]||{d,n:0,done:0,prog:0,late:0,none:0,achS:0,achN:0,f:0,fp:0};
+    x.n++; const st=autoStatus(p,q).k; x[st==='done'?'done':st==='late'?'late':st==='none'?'none':'prog']++;
+    const a=annualOf(p,targetOf(p)).ach; if(a!==null&&a!==undefined&&!isNaN(a)){x.achS+=Math.min(a,100);x.achN++}
+    if(closed(q)||dshFilled(p,q))x.f++; if(pq&&(closed(pq)||dshFilled(p,pq)))x.fp++});
+  const L=Object.values(D).map(x=>({...x,ach:x.achN?Math.round(x.achS/x.achN):null,fill:pct(x.f,x.n),fillP:pq?pct(x.fp,x.n):null}))
+    .sort((a,b)=>(b.ach??-1)-(a.ach??-1)||a.d.localeCompare(b.d,'ar'));
+  const late=P.map(p=>({p,s:autoStatus(p,q)})).filter(x=>x.s.k==='late');
+  return {L,late,P};
+}
+const dshMonthRange=(off=0)=>{const t=todayISO(); let y=+t.slice(0,4), m=+t.slice(5,7)-off; while(m<1){m+=12;y--}
+  const ym=`${y}-${String(m).padStart(2,'0')}`; return {from:ym+'-01',to:`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`,label:`${MN[m]} ${y}`}};
+/* مؤشر الالتزام هذا الشهر مع الاتجاه مقارنة بالشهر السابق */
+function dshCommit(){
+  const A=dshMonthRange(0), B=dshMonthRange(1);
+  const C=tkCommit(A.from,A.to), Cp=tkCommit(B.from,B.to), prev=new Map(Cp.map(x=>[x.d,x.pct]));
+  return {C:C.map(x=>({...x,prev:prev.has(x.d)?prev.get(x.d):null})),A,B};
+}
+const dshTrend=(a,b)=>b===null||b===undefined?'<small style="color:var(--muted)">جديد</small>'
+  :a>b?`<b style="color:#2F8F5B">▲ ${a-b}</b>`:a<b?`<b style="color:#B42318">▼ ${b-a}</b>`:'<small style="color:var(--muted)">ثابت</small>';
+const dshBar=(v,c)=>`<div class="dshBar"><i style="width:${Math.max(0,Math.min(100,v||0))}%;background:${c||(v>=80?'#2F8F5B':v>=50?'#C98A12':'#B42318')}"></i></div>`;
+function dshRender(){
+  const box=$('#dsh_body'); if(!box)return;
+  if(!isManager()){box.innerHTML='<p class="hint">لوحة القيادة للمدير.</p>';return}
+  const q=DSH.q||Q(); DSH.q=q;
+  const {L,late,P}=dshExec(q), K=dshCommit(), T=offAll('tasks');
+  const lateT=T.filter(t=>!t.done&&taskStatus(t).k==='late').sort((a,b)=>tkLateDays(b)-tkLateDays(a));
+  const escT=T.filter(t=>!t.done&&t.esc);
+  const M=dshMonthRange(0), inM=d=>d&&d>=M.from&&d<=M.to, num=v=>parseFloat(ar2en(String(v||'')).replace(/[^\d.]/g,''))||0;
+  const ev=[]; Object.values(state.years||{}).forEach(Y=>(Y.events||[]).forEach(e=>{if(inM(evFrom(e)))ev.push(e)}));
+  const sch=offAll('schools').filter(s=>inM(s.date)), pzl=offAll('prisons').filter(z=>z.type==='lesson'&&inM(z.date));
+  const tot=P.length, dn=L.reduce((a,x)=>a+x.done,0), lt=L.reduce((a,x)=>a+x.late,0);
+  const achAll=(()=>{const v=L.filter(x=>x.ach!==null); return v.length?Math.round(v.reduce((a,x)=>a+x.ach,0)/v.length):0})();
+  const st=(n,l,c)=>`<div class="annStat"${c?` style="border-color:${c}"`:''}><div class="n tnum"${c?` style="color:${c}"`:''}>${esc(String(n))}</div><div class="l">${esc(l)}</div></div>`;
+  $('#dsh_q').innerHTML=[1,2,3,4].map(k=>`<button class="psBtn${k===q?' on':''}" data-dshq="${k}">الربع ${QN[k]}</button>`).join('');
+  box.innerHTML=`
+  <div class="annStats" style="margin-bottom:var(--s3)">
+    ${st(achAll+'%','متوسط الإنجاز السنوي للخطة')}${st(`${dn} / ${tot}`,'مشروع مكتمل')}${st(lt,'مشروع متأخر',lt?'#B42318':'')}
+    ${st(lateT.length,'مهمة متأخرة الآن',lateT.length?'#B42318':'')}${st(escT.length,'مهمة مُصعَّدة',escT.length?'#B42318':'')}
+    ${st(ev.length+sch.length+pzl.length,'نشاطاً ميدانياً هذا الشهر')}
+  </div>
+  <section class="card" style="margin-bottom:var(--s3)"><h2>${icon('flag')}الإنجاز حسب القسم — الربع ${QN[q]} ${state.year}
+    <span class="note">متوسط الإنجاز السنوي، ووضع المشاريع، وتعبئة الربع مقارنة بالربع السابق</span></h2>
+    <div class="in" style="overflow-x:auto"><table class="dshT"><thead><tr><th>م</th><th>القسم</th><th>المشاريع</th><th>مكتملة</th><th>قيد الإنجاز</th><th>متأخرة</th>
+      <th style="min-width:150px">متوسط الإنجاز السنوي</th><th>تعبئة الربع ${QN[q]}</th>${q>1?`<th>الربع ${QN[q-1]}</th><th>التغيّر</th>`:''}</tr></thead><tbody>${
+      L.map((x,i)=>`<tr><td>${i+1}</td><td class="rt"><b>${esc(x.d)}</b></td><td>${x.n}</td><td style="color:#2F8F5B">${x.done}</td><td>${x.prog}</td>
+        <td${x.late?' style="color:#B42318;font-weight:700"':''}>${x.late}</td>
+        <td>${x.ach===null?'<small>لا مستهدف</small>':`${dshBar(x.ach)}<b>${x.ach}%</b>`}</td><td>${dshBar(x.fill,'var(--brand)')}<b>${x.fill}%</b></td>
+        ${q>1?`<td>${x.fillP}%</td><td>${dshTrend(x.fill,x.fillP)}</td>`:''}</tr>`).join('')||'<tr><td colspan="10">لا مشاريع في الخطة التنفيذية</td></tr>'}</tbody></table></div></section>
+  <div class="dshG2">
+  <section class="card"><h2>${icon('alert')}أكثر المشاريع تأخراً <span class="note">${late.length} مشروعاً متأخراً حتى الربع ${QN[q]}</span></h2><div class="in">${
+    late.length?`<table class="dshT"><thead><tr><th>م</th><th>المشروع</th><th>القسم</th><th>السبب</th></tr></thead><tbody>${
+      late.slice(0,10).map((x,i)=>`<tr><td>${i+1}</td><td class="rt">${esc(x.p.name||x.p.title||'')}</td><td>${esc(x.p.dept||'')}</td><td class="rt"><small>${esc(x.s.why||'')}</small></td></tr>`).join('')}</tbody></table>`
+    :'<p class="hint" style="margin:0">لا مشاريع متأخرة 👏</p>'}</div></section>
+  <section class="card"><h2>${icon('chart')}التزام الأقسام — ${esc(K.A.label)} <span class="note">مقارنة بـ ${esc(K.B.label)}</span></h2><div class="in">${
+    K.C.length?`<table class="dshT"><thead><tr><th>الترتيب</th><th>القسم</th><th>المسندة</th><th style="min-width:120px">الالتزام</th><th>الاتجاه</th><th>متأخرة الآن</th><th>تذكيرات</th></tr></thead><tbody>${
+      K.C.map((x,i)=>`<tr><td>${i<3?['🥇','🥈','🥉'][i]:i+1}</td><td class="rt">${esc(x.d)}</td><td>${x.n}</td><td>${dshBar(x.pct)}<b>${x.pct}%</b></td>
+        <td>${dshTrend(x.pct,x.prev)}</td><td${x.late?' style="color:#B42318;font-weight:700"':''}>${x.late}</td><td>${x.rem}</td></tr>`).join('')}</tbody></table>`
+    :'<p class="hint" style="margin:0">لا مهام مرسلة هذا الشهر.</p>'}</div></section>
+  </div>
+  <div class="dshG2">
+  <section class="card"><h2>${icon('alert')}المهام المُصعَّدة والأطول تأخراً</h2><div class="in">${
+    escT.length||lateT.length?`<table class="dshT"><thead><tr><th>المهمة</th><th>لم يرد</th><th>التأخر</th><th>التذكيرات</th></tr></thead><tbody>${
+      [...escT,...lateT.filter(t=>!t.esc)].slice(0,12).map(t=>`<tr${t.esc?' style="background:#FDF1F0"':''}><td class="rt">${t.esc?'<span class="chip" style="background:#B42318;color:#fff">مُصعَّدة</span> ':''}${t.no?`<b>${esc(t.no)}</b> `:''}${esc(t.title||'')}</td>
+        <td><small>${esc(tkPend(t).join('، '))}</small></td><td style="color:#B42318;font-weight:700">${tkLateDays(t)} يوم</td>
+        <td>${tkPend(t).reduce((a,d)=>a+tkRem(t,d).length,0)}</td></tr>`).join('')}</tbody></table>`
+    :'<p class="hint" style="margin:0">لا مهام متأخرة.</p>'}</div></section>
+  <section class="card"><h2>${icon('sparkle')}الميدان — ${esc(M.label)}</h2><div class="in"><div class="annStats">
+    ${st(ev.length,'فعالية')}${st(ev.reduce((a,e)=>a+num(e.ben),0).toLocaleString('en'),'مستفيد من الفعاليات')}
+    ${st(sch.length,'فعالية مدرسية')}${st(new Set(sch.map(s=>s.school).filter(Boolean)).size,'مدرسة')}
+    ${st(sch.reduce((a,s)=>a+num(s.count),0).toLocaleString('en'),'طالب وطالبة')}${st(pzl.length,'خاطرة ودرس بالمؤسسات')}
+  </div></div></section>
+  </div>`;
+}
+/* وضع العرض: ملء الشاشة بخط أكبر لاجتماع الإدارة */
+function dshPresent(){
+  const v=$('#vDash'); v.classList.toggle('dshShow');
+  try{if(v.classList.contains('dshShow')){(v.requestFullscreen||v.webkitRequestFullscreen||(()=>{})).call(v)}else if(document.fullscreenElement)document.exitFullscreen()}catch(e){}
+}
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement){const v=$('#vDash'); if(v)v.classList.remove('dshShow')}});
+
+/* ══════════ تقرير «من لم يرد» الأسبوعي ══════════ */
+function repNoReply(){
+  const T=offAll('tasks').filter(t=>!t.done&&taskStatus(t).k==='late');
+  if(!T.length){toast('لا توجد مهام متأخرة — كل الأقسام ردّت');return}
+  const D={}; T.forEach(t=>tkPend(t).forEach(d=>{(D[d]=D[d]||[]).push(t)}));
+  const G=Object.entries(D).map(([d,L])=>({d,L:L.sort((a,b)=>tkLateDays(b)-tkLateDays(a)),rem:L.reduce((a,t)=>a+tkRem(t,d).length,0),
+      max:Math.max(...L.map(tkLateDays))})).sort((a,b)=>b.L.length-a.L.length||b.max-a.max);
+  const top=T.slice().sort((a,b)=>tkLateDays(b)-tkLateDays(a))[0];
+  const tbl=(h,rows)=>`<table class="rpT"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+  const body=`<div class="rpK"><span><b>${G.length}</b> قسماً لم يرد</span><span><b>${T.length}</b> مهمة متأخرة</span>
+      <span><b>${G.reduce((a,x)=>a+x.rem,0)}</b> تذكيراً أُرسل</span><span>الأطول تأخراً: <b>${esc(top.no||'')} ${esc(top.title||'')}</b> — ${tkLateDays(top)} يوماً</span></div>
+    <h2 class="psec">أولاً: ملخص الأقسام</h2>${tbl(['م','القسم','مهام لم يرد عليها','أطول تأخر','التذكيرات المرسلة','آخر تذكير'],
+      G.map((x,i)=>{const last=x.L.flatMap(t=>tkRem(t,x.d)).map(r=>r.at).sort().pop();
+        return `<tr><td>${i+1}</td><td class="rt">${esc(x.d)}</td><td><b>${x.L.length}</b></td><td style="color:#B42318">${x.max} يوماً</td><td>${x.rem}</td><td>${last?esc(dmy(last.slice(0,10))):'لم يُذكَّر'}</td></tr>`}).join(''))}
+    <h2 class="psec">ثانياً: التفاصيل حسب القسم</h2>${G.map(x=>`<h3 class="ptbl">${esc(x.d)} — ${x.L.length} مهمة</h3>${tbl(['م','رقم','المهمة','الموعد','التأخر','التذكيرات'],
+      x.L.map((t,i)=>`<tr><td>${i+1}</td><td>${esc(t.no||'')}</td><td class="rt">${esc(t.title||'')}</td><td>${esc(dmy(t.due))}</td><td style="color:#B42318">${tkLateDays(t)} يوماً</td><td>${tkRem(t,x.d).length}</td></tr>`).join(''))}`).join('')}`;
+  repPrint('تقرير الأقسام التي لم ترد',`حتى ${dmy(todayISO())}`,body,`من لم يرد ${dmy(todayISO())}`);
+}
+
+/* ══════════ التقرير الربعي الشامل ══════════ */
+function repQuarterDlg(){
+  const t=todayISO(), y=+t.slice(0,4);
+  offDrawer('التقرير الربعي الشامل','الخطة التنفيذية والفعاليات والمدارس والمؤسسات والمهام والمذكرات — بغلاف وفهرس',`
+    <div class="g2"><div class="fg"><label>الربع</label><select id="rqQ">${[1,2,3,4].map(k=>`<option value="${k}"${k===Q()?' selected':''}>الربع ${QN[k]}</option>`).join('')}</select></div>
+    <div class="fg"><label>السنة</label><input type="text" id="rqY" value="${y}" inputmode="numeric"></div></div>
+    <p class="hint">غلاف، ثم فهرس، ثم كل قسم في صفحة: إنجاز الخطة التنفيذية حسب القسم والمشاريع المتأخرة، ثم الفعاليات والمدارس والمؤسسات والمهام والتزام الأقسام والمذكرات للأشهر الثلاثة.</p>`,
+    `<button class="btn btn-p" id="rqGo">${icon('print')}طباعة / PDF</button><button class="btn" id="dCancel">إلغاء</button>`);
+  $('#dCancel').onclick=closeDrawer;
+  $('#rqGo').onclick=()=>{const q=+$('#rqQ').value, yy=+ar2en($('#rqY').value)||y; closeDrawer(); repMonthly(yy,monthsOfQ(q),{q})};
+  $('#ov').classList.add('on');
 }
 
 function logout(){
