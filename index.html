@@ -3882,7 +3882,7 @@ function downloadBackup(){
   const name=`نسخة احتياطية - ${state.year} - ${new Date().toISOString().slice(0,10)}.json`;
   dl(new Blob([JSON.stringify(state,null,1)],{type:'application/json'}),name);
   try{store.set(KEY+'_bk',new Date().toISOString()); const b=$('#bkBar'); if(b)b.hidden=true}catch(e){}
-  toast('نُزّلت نسخة احتياطية');
+  toast(`نُزّلت نسخة احتياطية بتاريخ ${abStamp()}`);
 }
 
 /* ══════════ الصلاحيات ══════════ */
@@ -11893,10 +11893,58 @@ function ledRecentDlg(){
 }
 /* النسخة الاحتياطية الأسبوعية */
 function ledBackupAgo(){const t=store.get(KEY+'_bk'); if(!t)return 'لم تُؤخذ بعد'; const d=Math.floor((Date.now()-new Date(t))/864e5); return d?`آخرها قبل ${d} يوم`:'أُخذت اليوم'}
-function bkCheck(){
-  const t=store.get(KEY+'_bk'), d=t?Math.floor((Date.now()-new Date(t))/864e5):999, b=$('#bkBar'); if(!b||d<7)return;
+/* ══════════ النسخ الاحتياطي التلقائي إلى مجلد على الجهاز ══════════
+   يُختار المجلد مرة واحدة (يُحفظ في IndexedDB)، ثم تُحفظ نسخة عند كل فتح للنظام:
+   ملف يومي بالتاريخ + ملف «الأحدث»، ويُحتفظ بآخر 30 نسخة يومية. */
+const AB={sup:typeof window.showDirectoryPicker==='function'};
+function abIdb(){return new Promise((res,rej)=>{const r=indexedDB.open('motaba-backup',1);r.onupgradeneeded=()=>r.result.createObjectStore('h');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function abGet(){try{const db=await abIdb();return await new Promise(res=>{const q=db.transaction('h').objectStore('h').get('dir');q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null)})}catch(e){return null}}
+async function abSet(d){try{const db=await abIdb();await new Promise(res=>{const t=db.transaction('h','readwrite');t.objectStore('h').put(d,'dir');t.oncomplete=res;t.onerror=res})}catch(e){}}
+function abStamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} الساعة ${p(d.getHours())}:${p(d.getMinutes())}`}
+async function abWrite(dir){
+  const data=JSON.stringify(state,null,1), day=new Date().toISOString().slice(0,10);
+  for(const name of [`نسخة احتياطية - متابعة الخطط - ${day}.json`,'نسخة احتياطية - متابعة الخطط - الأحدث.json']){
+    const fh=await dir.getFileHandle(name,{create:true});const w=await fh.createWritable();await w.write(data);await w.close();
+  }
+  try{const L=[];for await(const [n,hd] of dir.entries())if(hd.kind==='file'&&/^نسخة احتياطية - متابعة الخطط - \d{4}-\d{2}-\d{2}\.json$/.test(n))L.push(n);
+    L.sort().reverse().slice(30).forEach(n=>dir.removeEntry(n).catch(()=>{}))}catch(e){}
+  try{store.set(KEY+'_bk',new Date().toISOString())}catch(e){}
+  const b=$('#bkBar');if(b)b.hidden=true;
+  toast(`تم تحديث النسخة الاحتياطية بتاريخ ${abStamp()} — في مجلد «${dir.name}»`);
+}
+async function abChoose(){
+  try{const dir=await window.showDirectoryPicker({id:'motaba-backup',mode:'readwrite',startIn:'documents'});await abSet(dir);await abWrite(dir)}
+  catch(e){if(e&&e.name!=='AbortError')toast('تعذّر حفظ النسخة الاحتياطية: '+(e.message||e))}
+}
+async function abNow(){
+  const dir=await abGet();if(!dir)return abChoose();
+  try{let p=await dir.queryPermission({mode:'readwrite'});if(p!=='granted')p=await dir.requestPermission({mode:'readwrite'});
+    if(p==='granted')await abWrite(dir);else toast('لم يُمنح الإذن بالكتابة في المجلد')}
+  catch(e){toast('تعذّر حفظ النسخة الاحتياطية: '+(e.message||e))}
+}
+async function bkCheck(){
+  const b=$('#bkBar');
+  if(AB.sup){
+    const dir=await abGet();
+    if(dir){
+      let p='prompt';try{p=await dir.queryPermission({mode:'readwrite'})}catch(e){}
+      if(p==='granted'){try{await abWrite(dir)}catch(e){}return}
+      if(!b)return;
+      b.innerHTML=`${icon('alert')}<span>النسخة الاحتياطية في مجلد «${esc(dir.name)}» تحتاج موافقتك بعد إعادة فتح المتصفح.</span>
+        <button class="btn btn-p" id="bkGo">${icon('dl')}تحديث النسخة الآن</button><button class="btn" id="bkLater">لاحقاً</button>`;
+      b.hidden=false;$('#bkGo').onclick=()=>abNow();$('#bkLater').onclick=()=>{b.hidden=true};
+      return;
+    }
+    if(!b||store.get(KEY+'_bkSnooze')===todayISO())return;
+    b.innerHTML=`${icon('alert')}<span>اختر مرة واحدة مجلدًا لحفظ النسخ الاحتياطية (يُستحسن مجلد OneDrive)، وبعدها تُحفظ نسخة تلقائيًا عند كل فتح للنظام.</span>
+      <button class="btn btn-p" id="bkGo">${icon('dl')}اختيار مكان الحفظ</button><button class="btn" id="bkLater">لاحقاً</button>`;
+    b.hidden=false;$('#bkGo').onclick=()=>abChoose();$('#bkLater').onclick=()=>{store.set(KEY+'_bkSnooze',todayISO());b.hidden=true};
+    return;
+  }
+  /* متصفح لا يدعم الحفظ في مجلد: تذكير أسبوعي بالتنزيل كما كان */
+  const t=store.get(KEY+'_bk'), d=t?Math.floor((Date.now()-new Date(t))/864e5):999; if(!b||d<7)return;
   if(store.get(KEY+'_bkSnooze')===todayISO())return;
-  b.innerHTML=`${icon('alert')}<span>${t?`مضى <b>${d}</b> يوماً على آخر نسخة احتياطية.`:'لم تُؤخذ نسخة احتياطية من هذا الجهاز بعد.'} احتفظ بنسخة أسبوعية خارج النظام.</span>
+  b.innerHTML=`${icon('alert')}<span>${t?`مضى <b>${d}</b> يوماً على آخر نسخة احتياطية.`:'لم تُؤخذ نسخة احتياطية من هذا الجهاز بعد.'} احتفظ بنسخة أسبوعية خارج النظام
     <button class="btn btn-p" id="bkGo">${icon('dl')}نزّل نسخة الآن</button><button class="btn" id="bkLater">لاحقاً</button>`;
   b.hidden=false;
   $('#bkGo').onclick=()=>downloadBackup();
