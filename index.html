@@ -586,6 +586,32 @@ textarea{resize:vertical;min-height:64px;line-height:1.65}
 .annStat .l{font-size:12.5px;color:var(--ink2);font-weight:600;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .annStat .m{margin-top:8px}
 /* لوحة القيادة */
+.drawer.wide{width:min(1200px,100%)}
+.ntfN{position:absolute;top:-4px;left:-4px;min-width:17px;height:17px;border-radius:9px;background:#B42318;color:#fff;font-size:10.5px;font-weight:700;line-height:17px;text-align:center;padding:0 4px}
+.calG{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.calH{text-align:center;font-weight:700;font-size:12.5px;color:var(--ink2);padding:4px 0}
+.calC{min-height:92px;border:1px solid var(--grid);border-radius:8px;padding:4px 5px;background:var(--surface);display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.calC.off{background:transparent;border-style:dashed;opacity:.4}
+.calC.today{border-color:var(--brand);box-shadow:0 0 0 2px var(--ring)}
+.calC b{font-size:13px}
+.calI{font-size:11px;line-height:1.35;border-inline-start:3px solid;padding-inline-start:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default}
+.calI[data-calo]{cursor:pointer;text-decoration:underline dotted}
+/* الوضع الليلي */
+html.dark{--surface:#16201C;--plane:#0F1714;--sunken:#1B2723;--ink:#E4ECE8;--ink2:#B5C4BD;--muted:#8A9C94;--grid:#2B3A34;--axis:#3A4B44;
+  --brand-soft:#173A2E;--brand-line:#2B3A34;--g-light:#173A2E;--g-th:#1F2D28;--g-th-ink:#CFE3D8;--g-hover:#1C2A25;--g-bg:#0F1714;--g-surface:#16201C;--g-border:#2B3A34;--g-text:#E4ECE8;--gold-soft:#2A2618}
+html.dark body,html.dark .card,html.dark .drawer,html.dark input,html.dark select,html.dark textarea,html.dark .annStat{color:var(--ink)}
+html.dark .card,html.dark .drawer .sec,html.dark .calC{background:var(--surface);border-color:var(--grid)}
+html.dark input,html.dark select,html.dark textarea{background:#1B2723;border-color:var(--grid)}
+html.dark .btn:not(.btn-p){background:#1B2723;color:var(--ink);border-color:var(--grid)}
+html.dark table td{border-color:var(--grid)}
+html.dark .annStat,html.dark section.card,html.dark .card.filters,html.dark .fillCard,html.dark .remDept,html.dark .tkRemBox,html.dark .chip{background:var(--surface)!important;color:var(--ink)!important;border-color:var(--grid)!important}
+html.dark .annStat .l,html.dark .hint,html.dark small{color:var(--muted)!important}
+html.dark .pageHead,html.dark .card h2,html.dark .drawer h3,html.dark .crumb b{color:#CFE3D8!important}
+html.dark table th{background:#1F2D28!important;color:#CFE3D8!important;border-color:var(--grid)!important}
+html.dark table td{background:transparent;color:var(--ink)}
+html.dark .vtabs,html.dark .vt{background:#111B17!important;color:var(--ink)!important;border-color:var(--grid)!important}
+html.dark .vt.on{background:var(--brand)!important;color:#fff!important}
+html.dark #gsQ,html.dark .gsBox{background:#1B2723!important;color:var(--ink)!important}
 .dshT{width:100%;border-collapse:collapse;font-size:13.5px}
 .dshT th{background:var(--g-th,#F1F6F3);color:var(--g-th-ink,#164B3A);padding:7px 6px;font-weight:700;border-bottom:1px solid var(--grid);white-space:nowrap}
 .dshT td{padding:7px 6px;border-bottom:1px solid var(--grid);text-align:center;vertical-align:middle}
@@ -1610,6 +1636,7 @@ M2620 1116 c0 -3 9 -10 20 -16 11 -6 20 -8 20 -6 0 3 -9 10 -20 16 -11 6 -20
   <div class="who">
     <div><div class="nm" id="whoName"></div><div class="rl" id="whoRole"></div></div>
     <span class="netDot whoNet" id="netDot" hidden style="cursor:pointer"><i></i><span class="nl"></span></span>
+    <button id="btnNtf" title="الإشعارات: ردود الأقسام" aria-label="الإشعارات" hidden style="position:relative"><svg class="ic"><use href="#i-alert"/></svg><span class="ntfN" hidden></span></button>
     <button id="btnAdmin" title="لوحة المدير" aria-label="لوحة المدير" hidden><svg class="ic"><use href="#i-cog"/></svg></button>
     <button id="btnOut" title="تسجيل الخروج" aria-label="تسجيل الخروج"><svg class="ic"><use href="#i-out"/></svg></button>
   </div>
@@ -4256,6 +4283,7 @@ function rebuildFromCloud(){
   offInit();
   cloud.ready=true;
   if(LOC||JSON.stringify(Object.keys(fingerprint(state).off).sort())!==JSON.stringify(Object.keys(lastFp.off).sort()))save(true);
+  try{if(me)ntfCheck()}catch(e){}
   if(me&&users[me.u])me=users[me.u];
   if($('#app')&&!$('#app').hidden&&Object.keys(years).length){buildPeriod();renderAll();paintHead()}
   try{if(yearRollover()){buildPeriod();renderAll();paintHead()}}catch(e){}
@@ -4522,7 +4550,8 @@ function tkSpawn(t){
   if(!t.repeat)return null;
   const due=tkNext(t.due||t.start||todayISO(),t.repeat);
   const start=t.start&&t.due?tkNext(t.start,t.repeat):todayISO();
-  const n={...t,id:uid('t'),no:nextTaskNo(),start,due,done:false,updates:[],rep:{},mail:t.mail?{...t.mail,sentAt:'',count:0}:undefined,
+  const {remind,mailLog,esc:_e,doneAt,_h,...t0}=t;
+  const n={...t0,id:uid('t'),no:nextTaskNo(),start,due,done:false,updates:[],rep:{},mail:t.mail?{...t.mail,sentAt:'',count:0}:undefined,
     parent:t.id,at:new Date().toISOString()};
   OFF().tasks.push(n); return n;
 }
@@ -5141,7 +5170,9 @@ function openTask(id,opts){
     </div>
     <div class="fg"><label>التكرار ${help('عند إنجاز المهمة تُنشأ تلقائياً نسخة تالية بموعد البداية والاستحقاق التاليين وتبقى في المتابعة.')}</label>
       <select data-o="repeat" ${mgr?'':'disabled'}>${TK_REPEAT.map(([k,l])=>
-        `<option ${k===(t.repeat||'')?'selected':''} value="${k}">${l}</option>`).join('')}</select></div>
+        `<option ${k===(t.repeat||'')?'selected':''} value="${k}">${l}</option>`).join('')}</select>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:13px;cursor:pointer"><input type="checkbox" data-o="repAuto" style="width:auto" ${t.repAuto?'checked':''} ${mgr?'':'disabled'}>
+        تُنشأ النسخة التالية تلقائياً في موعدها (مثل أول كل شهر) حتى لو لم تُنجز السابقة</label></div>
     <div class="g2">
       <div class="fg"><label>الجهة المتابعة</label><input type="text" data-o="entity" value="${esc(t.entity||'')}" ${mgr?'':'disabled'}></div>
       <div class="fg"><label>هاتف التواصل</label><input type="text" dir="ltr" style="text-align:right" data-o="phone" value="${esc(t.phone||'')}" ${mgr?'':'disabled'}></div>
@@ -5170,6 +5201,7 @@ function openTask(id,opts){
       :`<button class="btn" id="dCancel">إغلاق</button>`);
   $('#dCancel').onclick=closeDrawer;
   wireWeekAfter('start','due');
+  try{if(mgr)tkSmartWire()}catch(e){console.warn('smartDue',e)}
   if($('#dDel'))$('#dDel').onclick=()=>{
     if(!confirm(`حذف المهمة «${t.title}»؟`))return;
     OFF().tasks=OFF().tasks.filter(x=>x.id!==id);
@@ -5186,6 +5218,7 @@ function openTask(id,opts){
       det:mgr?fv('det'):t.det,
       secs:mgr?readSecs('tsec'):t.secs,
       repeat:mgr?fv('repeat'):(t.repeat||''),
+      repAuto:mgr?!!($('#dBody [data-o="repAuto"]')||{}).checked:!!t.repAuto,
       done:!!$('#dBody [data-o="done"]').checked,
       updates:(base.updates||[]).slice()};
     if(upd)rec.updates.unshift({at:new Date().toISOString(),by:me.name||me.u,txt:upd});
@@ -9102,7 +9135,7 @@ function bindLive(plan){
       })}};
   $('#dBody').addEventListener('input',upd);upd();
 }
-function closeDrawer(){$('#drawer').classList.remove('on');$('#drawer').setAttribute('aria-hidden','true');
+function closeDrawer(){$('#drawer').classList.remove('on','wide');$('#drawer').setAttribute('aria-hidden','true');
   $('#ov').classList.remove('on');ed={plan:null,i:-1,ro:true}}
 function saveEdit(){
   const{plan,i,ro}=ed; if(i<0||ro)return;
@@ -11056,6 +11089,9 @@ function startApp(){
   /* وضع الميدان: يُفتح تلقائياً أول دخول في اليوم */
   try{const k=KEY+'_fs_'+me.u; if(store.get(k)!==todayISO()){store.set(k,todayISO()); setTimeout(()=>fsShow(false),900)}}catch(e){}
   try{if(isManager()){ledPurge(); setTimeout(bkCheck,2500)}}catch(e){}
+  try{darkApply(store.get(darkKey())==='1')}catch(e){}
+  try{if(isManager()){setTimeout(()=>{tkAutoRepeat(); ntfCheck()},3500)} ntfPaint()}catch(e){}
+  try{const b=$('#btnNtf'); if(b&&!b.__w){b.__w=1; b.onclick=ntfDlg}}catch(e){}
   /* كل أحد: تنبيه المدير بتقرير «من لم يرد» مرة واحدة في اليوم */
   try{const k=KEY+'_nr_'+me.u; if(isManager()&&new Date().getDay()===0&&store.get(k)!==todayISO()){store.set(k,todayISO());
     setTimeout(()=>{const T=offAll('tasks').filter(t=>!t.done&&taskStatus(t).k==='late'); if(!T.length)return;
@@ -11848,11 +11884,13 @@ function gsRun(){
       +(canSeePlan('tasks')?it('tkmorn','print','التقرير الصباحي للمهام','PDF عرضي'):'')
       +'<hr>'+it('weekly','cal','التقرير الأسبوعي','الخميس')+it('monthly','chart','التقرير الشهري الموحَّد','')
       +(mgr?it('quarter','print','التقرير الربعي الشامل','بغلاف وفهرس')+it('noreply','alert','تقرير من لم يرد','الأحد'):'')
+      +'<hr>'+it('cal','cal','تقويم الإدارة','كل المواعيد')+(mgr?it('ntf','alert','الإشعارات','ردود الأقسام')+it('dq','check','جودة البيانات','السجلات الناقصة'):'')
+      +it('dark','target',document.documentElement.classList.contains('dark')?'الوضع النهاري':'الوضع الليلي','')
       +(canSeePlan('tasks')?it('commit','chart','التزام الأقسام',''):'')
       +(mgr?'<hr>'+it('trash','trash','سلة المحذوفات','30 يوماً')+it('hist','edit','آخر التغييرات','')+it('backup','dl','نسخة احتياطية الآن',ledBackupAgo()):'');
     Mn.hidden=!Mn.hidden; R.hidden=true});
   Mn.addEventListener('click',e=>{const b=e.target.closest('[data-gst]'); if(!b)return; Mn.hidden=true;
-    ({morning:()=>fsShow(true),tkmorn:tkMorning,weekly:()=>repWeekly(),monthly:repMonthlyDlg,commit:tkCommitDlg,quarter:repQuarterDlg,noreply:()=>repNoReply(),
+    ({morning:()=>fsShow(true),tkmorn:tkMorning,weekly:()=>repWeekly(),monthly:repMonthlyDlg,commit:tkCommitDlg,quarter:repQuarterDlg,noreply:()=>repNoReply(),cal:calOpen,ntf:ntfDlg,dq:dqDlg,dark:darkToggle,
       trash:ledTrashDlg,hist:ledRecentDlg,backup:()=>{downloadBackup()}})[b.dataset.gst]()});
 })();
 
@@ -12303,6 +12341,140 @@ function repQuarterDlg(){
     `<button class="btn btn-p" id="rqGo">${icon('print')}طباعة / PDF</button><button class="btn" id="dCancel">إلغاء</button>`);
   $('#dCancel').onclick=closeDrawer;
   $('#rqGo').onclick=()=>{const q=+$('#rqQ').value, yy=+ar2en($('#rqY').value)||y; closeDrawer(); repMonthly(yy,monthsOfQ(q),{q})};
+  $('#ov').classList.add('on');
+}
+
+/* ══════════ (1) إشعارات الردود: عندما يردّ قسم على مهمة يُنبَّه المدير داخل النظام ══════════ */
+const NTF={k:()=>KEY+'_ntf_'+(me&&me.u)};
+function ntfAll(){
+  const L=[]; offAll('tasks').forEach(t=>Object.entries(t.rep||{}).forEach(([d,r])=>{
+    if(r&&(r.done||String(r.txt||'').trim()))L.push({id:t.id+'|'+d+'|'+(r.date||'')+'|'+(r.done?1:0),t,d,r,at:r.apAt||r.date||''})}));
+  return L.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+}
+function ntfSeen(){try{return new Set(JSON.parse(store.get(NTF.k())||'[]'))}catch(e){return new Set()}}
+function ntfMark(ids){try{const S=ntfSeen(); ids.forEach(x=>S.add(x)); store.set(NTF.k(),JSON.stringify([...S].slice(-3000)))}catch(e){}}
+function ntfCheck(first){
+  if(!me||!isManager())return;
+  const A=ntfAll(), S=ntfSeen();
+  if(!store.get(NTF.k())){ntfMark(A.map(x=>x.id)); ntfPaint(); return}     /* أول تشغيل: لا تُعرض الردود القديمة */
+  const N=A.filter(x=>!S.has(x.id)); ntfPaint(N.length);
+  if(!N.length||first===false)return;
+  if(N.length<=3)N.forEach((x,i)=>setTimeout(()=>toast(`ردّ «${x.d}» على ${x.t.no||''} ${x.t.title||''}${x.r.done?' — منجز':''}`),i*1800));
+  else toast(`${N.length} ردود جديدة من الأقسام — افتح «الإشعارات» من الجرس`);
+}
+function ntfPaint(n){const b=$('#btnNtf'); if(!b)return; b.hidden=!(me&&isManager());
+  if(n===undefined){const S=ntfSeen(); n=ntfAll().filter(x=>!S.has(x.id)).length}
+  const c=b.querySelector('.ntfN'); if(c){c.textContent=n>99?'99+':n; c.hidden=!n}}
+function ntfDlg(){
+  const A=ntfAll().slice(0,40), S=ntfSeen();
+  offDrawer('الإشعارات','ردود الأقسام على المهام — الأحدث أولاً',A.length?`<table class="dshT"><thead><tr><th></th><th>القسم</th><th>المهمة</th><th>الرد</th><th>التاريخ</th></tr></thead><tbody>${
+    A.map(x=>`<tr${S.has(x.id)?'':' style="background:#FFF8E6"'}><td>${S.has(x.id)?'':'<b style="color:#B42318">●</b>'}</td><td>${esc(x.d)}</td>
+      <td class="rt"><a href="#" data-ntfopen="${esc(x.t.id)}">${esc(x.t.no||'')} ${esc(x.t.title||'')}</a></td>
+      <td class="rt"><small>${x.r.done?'<b style="color:#2F8F5B">منجز</b> ':''}${esc(String(x.r.txt||'').slice(0,90))}</small></td><td>${esc(dmy(String(x.at).slice(0,10)))}</td></tr>`).join('')}</tbody></table>`
+    :'<p class="hint">لا توجد ردود بعد.</p>',`<button class="btn btn-p" id="ntfAll">${icon('check')}تعليم الكل كمقروء</button><button class="btn" id="dCancel">إغلاق</button>`);
+  $('#dCancel').onclick=closeDrawer;
+  $('#ntfAll').onclick=()=>{ntfMark(ntfAll().map(x=>x.id)); ntfPaint(0); closeDrawer(); toast('عُلّمت الإشعارات كمقروءة')};
+  $('#dBody').onclick=e=>{const a=e.target.closest('[data-ntfopen]'); if(!a)return; e.preventDefault();
+    ntfMark(ntfAll().filter(x=>x.t.id===a.dataset.ntfopen).map(x=>x.id)); ntfPaint(); closeDrawer(); setView('tasks'); setTimeout(()=>openTask(a.dataset.ntfopen),150)};
+  $('#ov').classList.add('on');
+}
+
+/* ══════════ (2) الموعد الذكي: متوسط سرعة رد الأقسام المكلَّفة يقترح موعد الاستحقاق ══════════ */
+function tkSmartDue(secs,start){
+  if(!secs||!secs.length)return null;
+  const C=new Map(tkCommit('','').map(x=>[x.d,x]));
+  const av=secs.map(d=>C.get(d)).filter(x=>x&&x.avg!==null&&x.days&&x.days.length>=2);
+  if(!av.length)return null;
+  const worst=av.reduce((a,x)=>x.avg>a.avg?x:a);
+  const days=Math.max(3,Math.ceil(worst.avg)+2);
+  const d=new Date((start||todayISO())+'T12:00:00'); d.setDate(d.getDate()+days);
+  return {days,due:d.toISOString().slice(0,10),by:worst.d,avg:worst.avg};
+}
+function tkSmartWire(){
+  const box=$('#dBody'), due=box&&box.querySelector('[data-o="due"]'); if(!due||due.disabled)return;
+  let hint=box.querySelector('#tkSmart'); if(!hint){hint=document.createElement('div'); hint.id='tkSmart'; hint.className='hint'; hint.style.cssText='margin:-4px 0 8px';
+    due.closest('.g2').after(hint)}
+  const upd=()=>{const secs=[...box.querySelectorAll('[data-tsec]:checked')].map(x=>x.dataset.tsec);
+    const st=(box.querySelector('[data-o="start"]')||{}).value||todayISO(), S=tkSmartDue(secs,st);
+    hint.innerHTML=S?`${icon('target')}الموعد المقترح: <b>${esc(dmy(S.due))}</b> (${S.days} ${S.days<=10?'أيام':'يوماً'}) — لأن متوسط رد «${esc(S.by)}» ${S.avg.toFixed(1)} يوم.
+      <button type="button" class="btn" id="tkSmartUse" style="padding:1px 10px;min-height:0;margin-inline-start:6px">اعتماد المقترح</button>`:'';
+    const b=hint.querySelector('#tkSmartUse'); if(b)b.onclick=()=>{due.value=S.due; due.dispatchEvent(new Event('change',{bubbles:true})); toast('اعتُمد الموعد المقترح')}};
+  box.addEventListener('change',e=>{if(e.target.matches('[data-tsec],[data-secall],[data-o="start"]'))setTimeout(upd,0)}); upd();
+}
+
+/* ══════════ (3) المهام المتكررة تُنشأ تلقائياً في موعدها ══════════ */
+function tkAutoRepeat(){
+  if(!me||!isManager())return 0;
+  const T=OFF().tasks||[], today=todayISO(); let n=0;
+  const hasChild=t=>T.some(x=>x&&x.parent===t.id);
+  T.filter(t=>t&&!t.led&&t.repeat&&t.repAuto&&!hasChild(t)).forEach(t=>{
+    const nextStart=tkNext(t.start||t.due||today,t.repeat);
+    if(nextStart&&nextStart<=today){const c=tkSpawn(t); if(c){c.repAuto=true; n++;
+      c.updates=[{at:new Date().toISOString(),by:'النظام',txt:`أُنشئت تلقائياً (${TK_REPEAT_L[t.repeat]||''}) من المهمة ${t.no||''}`}]}}});
+  if(n){save(); try{tRender()}catch(e){} toast(`أُنشئت ${n} مهمة متكررة تلقائياً لهذه الفترة`)}
+  return n;
+}
+
+/* ══════════ (4) تقويم الإدارة الموحَّد ══════════ */
+const CAL={y:null,m:null};
+function calOpen(){const t=todayISO(); CAL.y=CAL.y||+t.slice(0,4); CAL.m=CAL.m||+t.slice(5,7); calDraw()}
+function calItems(y,m){
+  const ym=`${y}-${String(m).padStart(2,'0')}`, I=[], add=(d,k,txt,open)=>{if(d&&String(d).slice(0,7)===ym)I.push({d:String(d).slice(0,10),k,txt,open})};
+  Object.values(state.years||{}).forEach(Y=>(Y.events||[]).forEach(e=>add(evFrom(e),'ev',e.name||'فعالية')));
+  offAll('tasks').forEach(t=>{if(!t.done)add(t.due,'tk',`${t.no||''} ${t.title||''}`,()=>{setView('tasks');setTimeout(()=>openTask(t.id),150)})});
+  offAll('schools').forEach(s=>add(s.date,'sc',`${s.school||''} — ${s.topic||''}`));
+  offAll('prisons').forEach(z=>{if(z.type==='lesson')add(z.date,'pz',z.title||'خاطرة')});
+  offAll('memos').forEach(x=>{if(!x.done&&x.due)add(x.due,'mm',`رد مذكرة ${x.no||''}`)});
+  return I;
+}
+const CAL_K={ev:['الفعاليات','#0B7A55'],tk:['استحقاق المهام','#B42318'],sc:['فعاليات المدارس','#7D6320'],pz:['المؤسسات','#2F6DB5'],mm:['المذكرات','#7A4FA0']};
+function calDraw(){
+  const y=CAL.y, m=CAL.m, I=calItems(y,m), first=new Date(y,m-1,1), days=new Date(y,m,0).getDate(), lead=first.getDay();
+  const by={}; I.forEach(x=>(by[x.d]=by[x.d]||[]).push(x));
+  const cells=[]; for(let i=0;i<lead;i++)cells.push('<div class="calC off"></div>');
+  for(let d=1;d<=days;d++){const iso=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`, L=by[iso]||[];
+    cells.push(`<div class="calC${iso===todayISO()?' today':''}"><b>${d}</b>${L.slice(0,4).map((x,i)=>`<span class="calI" style="border-inline-start-color:${CAL_K[x.k][1]}" title="${esc(CAL_K[x.k][0]+': '+x.txt)}"${x.open?` data-calo="${esc(iso)}|${I.indexOf(x)}"`:''}>${esc(x.txt)}</span>`).join('')}${L.length>4?`<small>+${L.length-4} أخرى</small>`:''}</div>`)}
+  offDrawer('تقويم الإدارة',`${MN[m]} ${y} · ${I.length} موعداً ونشاطاً`,`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+      <button class="btn" id="calP">‹ السابق</button><b style="min-width:120px;text-align:center">${MN[m]} ${y}</b><button class="btn" id="calN">التالي ›</button>
+      <span style="flex:1"></span>${Object.values(CAL_K).map(([l,c])=>`<span class="chip" style="border-inline-start:4px solid ${c}">${l}</span>`).join('')}</div>
+    <div class="calG">${['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'].map(x=>`<div class="calH">${x}</div>`).join('')}${cells.join('')}</div>`,
+    `<button class="btn" id="dCancel">إغلاق</button>`);
+  $('#dCancel').onclick=closeDrawer; try{$('#dBody').scrollTop=0}catch(e){}
+  $('#calP').onclick=()=>{CAL.m--; if(CAL.m<1){CAL.m=12;CAL.y--} calDraw()};
+  $('#calN').onclick=()=>{CAL.m++; if(CAL.m>12){CAL.m=1;CAL.y++} calDraw()};
+  $('#dBody').onclick=e=>{const s=e.target.closest('[data-calo]'); if(!s)return; const x=I[+s.dataset.calo.split('|')[1]]; if(x&&x.open){closeDrawer(); x.open()}};
+  const dr=$('#drawer'); if(dr)dr.classList.add('wide');
+  $('#ov').classList.add('on');
+}
+
+/* ══════════ (11) الوضع الليلي ══════════ */
+const darkKey=()=>KEY+'_dark_'+(me&&me.u||'');
+function darkApply(on){document.documentElement.classList.toggle('dark',!!on)}
+function darkToggle(){const on=!document.documentElement.classList.contains('dark'); darkApply(on); try{store.set(darkKey(),on?'1':'')}catch(e){} toast(on?'الوضع الليلي مفعّل':'الوضع النهاري')}
+
+/* ══════════ (12) مؤشر جودة البيانات ══════════ */
+function dqScan(){
+  const R=[], add=(page,what,label,miss,open)=>{if(miss.length)R.push({page,what,label,miss,open})};
+  offAll('tasks').forEach(t=>add('المهام','مهمة',`${t.no||''} ${t.title||'(بلا عنوان)'}`,[!t.title&&'العنوان',!t.due&&'موعد الاستحقاق',!(t.secs||[]).length&&'الأقسام المكلَّفة'].filter(Boolean),()=>{setView('tasks');setTimeout(()=>openTask(t.id),150)}));
+  offAll('schools').filter(s=>!s.rep).forEach(s=>add('فعاليات المدارس','فعالية',`${s.school||'(بلا مدرسة)'} — ${s.topic||''}`,[!s.school&&'المدرسة',!s.date&&'التاريخ',!s.topic&&'الموضوع',!(String(s.count||'').trim())&&'عدد المستفيدين',!s.dept&&'القسم'].filter(Boolean),()=>{setView('schools');setTimeout(()=>openSchool(s.id),150)}));
+  offAll('prisons').filter(z=>z.type==='lesson').forEach(z=>add('المؤسسات','خاطرة/درس',`${z.title||'(بلا عنوان)'} — ${dmy(z.date)||''}`,[!z.date&&'التاريخ',!z.title&&'العنوان',!z.kind&&'النوع'].filter(Boolean),()=>{setView('prisons');setTimeout(()=>openPz(z.id),150)}));
+  offAll('memos').forEach(x=>add('الأرشيف','مذكرة',`${x.no||''} ${x.title||'(بلا موضوع)'}`,[!x.no&&'رقم المذكرة',!x.date&&'التاريخ',!x.title&&'الموضوع',!x.sender&&'الجهة المرسلة'].filter(Boolean),()=>{setView('arch');setTimeout(()=>openMemo(x.id),150)}));
+  Object.values(state.years||{}).forEach(Y=>(Y.events||[]).forEach(e=>add('الفعاليات','فعالية',e.name||'(بلا اسم)',[!e.name&&'اسم الفعالية',!evFrom(e)&&'التاريخ',!String(e.ben||'').trim()&&'عدد المستفيدين',!e.dept&&'القسم'].filter(Boolean))));
+  return R;
+}
+function dqDlg(){
+  const R=dqScan(), by={}; R.forEach(r=>(by[r.page]=by[r.page]||[]).push(r));
+  const tot={tasks:offAll('tasks').length,sch:offAll('schools').filter(s=>!s.rep).length,pz:offAll('prisons').length,mm:offAll('memos').length};
+  const all=tot.tasks+tot.sch+tot.pz+tot.mm+Object.values(state.years||{}).reduce((a,Y)=>a+(Y.events||[]).length,0);
+  const score=all?Math.round((1-R.length/all)*100):100;
+  offDrawer('جودة البيانات',`${R.length} سجلاً ناقصاً · اكتمال البيانات ${score}%`,
+    `<div class="annStats" style="margin-bottom:10px">${Object.entries(by).map(([p,L])=>`<div class="annStat"><div class="n tnum" style="color:#B42318">${L.length}</div><div class="l">${esc(p)}</div></div>`).join('')||'<p class="hint">كل السجلات مكتملة 👏</p>'}</div>
+    ${Object.entries(by).map(([p,L])=>`<div class="sec"><h3>${icon('alert')}${esc(p)} — ${L.length}</h3><div class="in"><table class="dshT"><thead><tr><th>السجل</th><th>الناقص</th><th></th></tr></thead><tbody>${
+      L.slice(0,60).map(r=>`<tr><td class="rt">${esc(r.label)}</td><td><small style="color:#B42318">${esc(r.miss.join('، '))}</small></td><td>${r.open?`<button class="btn" data-dqo="${R.indexOf(r)}" style="padding:1px 10px;min-height:0">إكمال</button>`:''}</td></tr>`).join('')}</tbody></table>${L.length>60?`<p class="hint">و${L.length-60} سجلاً آخر.</p>`:''}</div></div>`).join('')}`,
+    `<button class="btn" id="dCancel">إغلاق</button>`);
+  $('#dCancel').onclick=closeDrawer;
+  $('#dBody').onclick=e=>{const b=e.target.closest('[data-dqo]'); if(!b)return; const r=R[+b.dataset.dqo]; closeDrawer(); r.open()};
   $('#ov').classList.add('on');
 }
 
